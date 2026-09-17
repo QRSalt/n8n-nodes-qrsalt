@@ -1,0 +1,61 @@
+{
+  "name": "n8n-nodes-qrsalt",
+  "version": "0.1.0",
+  "description": "QRSalt nodes for n8n: render QR images, create and re-point QR codes and short links, read scan analytics, and trigger a workflow when a code is scanned.",
+  "keywords": [
+    "n8n-community-node-package",
+    "qr",
+    "qr-code",
+    "qrcode",
+    "short-link",
+    "analytics"
+  ],
+  "license": "MIT",
+  "homepage": "https://qrsalt.com/qr-code-api",
+  "author": {
+    "name": "QRSalt",
+    "email": "support@qrsalt.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/QRSalt/n8n-nodes-qrsalt.git"
+  },
+  "bugs": {
+    "url": "https://github.com/QRSalt/n8n-nodes-qrsalt/issues"
+  },
+  "scripts": {
+    "build": "n8n-node build",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "lint:fix": "n8n-node lint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test \"test/*.test.mjs\"",
+    "scan": "scan-community-package n8n-nodes-qrsalt",
+    "prepublishOnly": "n8n-node prerelease"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "strict": true,
+    "credentials": [
+      "dist/credentials/QrSaltApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/QrSalt/QrSalt.node.js",
+      "dist/nodes/QrSalt/QrSaltTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@n8n/node-cli": "^0.48.4",
+    "@n8n/scan-community-package": "^0.36.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}

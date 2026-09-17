@@ -1,0 +1,10 @@
+{
+  "node": "n8n-nodes-qrsalt.qrSalt",
+  "nodeVersion": "1.0",
+  "codexVersion": "1.0",
+  "categories": ["Marketing & Content", "Utility"],
+  "resources": {
+    "credentialDocumentation": [{ "url": "https://qrsalt.com/qr-code-api" }],
+    "primaryDocumentation": [{ "url": "https://qrsalt.com/qr-code-api" }]
+  }
+}

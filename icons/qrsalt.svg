@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60" role="img" aria-label="QRSalt">
+  <title>QRSalt</title>
+  <g transform="translate(-0.8 3.65) rotate(-16 30 30)">
+    <g transform="translate(30 30) scale(0.893) translate(-30 -30)" fill="none" stroke="#0A0A0B" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+      <!-- The shaker body, drawn as a QR code's outline. -->
+      <rect x="7" y="5" width="36" height="36" rx="9" />
+      <!-- A finder pattern, the part of a QR code everyone recognises. -->
+      <rect x="13.5" y="11.5" width="13" height="13" rx="1.5" stroke-width="3.4" />
+      <rect x="13.5" y="28.5" width="7.5" height="7.5" rx="1.2" stroke-width="3.2" />
+      <!-- The grains: modules waiting to be shaken out. -->
+      <g fill="#B4005A" stroke="none">
+        <rect x="18" y="16" width="4" height="4" rx="0.8" />
+        <rect x="29" y="21" width="8.5" height="8.5" rx="1.6" />
+        <rect x="24" y="30" width="7" height="7" rx="1.4" />
+        <rect x="33.5" y="32.5" width="4.5" height="4.5" rx="1" />
+      </g>
+      <!-- The cap, on the corner it pours from. -->
+      <g transform="translate(46 44) rotate(-45)">
+        <rect x="-9.5" y="-5.5" width="19" height="11" rx="5.5" stroke-width="4.6" />
+        <g fill="#0A0A0B" stroke="none">
+          <circle cx="-4.8" cy="0" r="1.7" />
+          <circle cx="0" cy="0" r="1.7" />
+          <circle cx="4.8" cy="0" r="1.7" />
+        </g>
+      </g>
+      <!-- One grain already out. -->
+      <rect x="50.5" y="48.5" width="5.5" height="5.5" rx="1.3" fill="#B4005A" stroke="none" />
+    </g>
+  </g>
+</svg>
