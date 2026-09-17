@@ -1,8 +1,9 @@
 # n8n-nodes-qrsalt
 
-QRSalt nodes for [n8n](https://n8n.io). Make QR codes and short links, re-point
-the ones you already printed, read their scans, and start a workflow the moment
-somebody scans one.
+QR code nodes for [n8n](https://n8n.io), backed by QRSalt. Generate a QR code or
+a short link, render a QR code image, read the text out of a QR code or barcode
+somebody sent you, re-point a code you have already printed, read its scan analytics, and
+start a workflow the moment somebody scans one.
 
 The package holds three things:
 
@@ -28,6 +29,9 @@ Then restart n8n.
 
 Node.js 22 or newer.
 
+Once installed, both nodes are in the editor's node panel under **QR**,
+**QR Code** or **QRSalt**.
+
 ## Credential
 
 Make an API key in the QRSalt dashboard under **Settings → API keys**. It starts
@@ -42,17 +46,34 @@ In n8n, add a **QRSalt API** credential:
 
 Pressing **Save** tests the key against `GET /api/v1/me`. A wrong or revoked key
 is rejected there and then, with the API's own message, rather than six steps
-later inside a workflow run.
+later inside a workflow run. A key that is perfectly valid but sits on a plan
+without API access is told that instead — it works, but only for QR Image →
+Render.
 
-**An API key needs a plan that includes API access** (Pro or Business). A key
-minted on a plan that later lapses stops working — entitlement is checked on
-every request, not once when the key was made.
+**Any plan can make a key, including Free.** What the key may then do depends on
+the plan:
+
+| The key is on | It can |
+| --- | --- |
+| Free or Starter | Render images: QR Image → Render, and `GET /api/v1/me` |
+| Pro or Business | Everything below as well |
+
+Everything under `/api/v1` — codes, links, folders, tags, forms, menus and
+analytics — needs **API access**, which starts at Pro. See
+[qrsalt.com/pricing](https://qrsalt.com/pricing). Entitlement is checked on
+every request, not once when the key was made, so a key on a plan that later
+lapses stops working.
 
 ## What the action node does
 
 Every operation is one call to the documented REST API at
 [qrsalt.com/qr-code-api](https://qrsalt.com/qr-code-api). Answers come back in
 the API's envelope: the result under `data`, paging and notes under `meta`.
+
+Each operation says what it needs under its name in the editor, and the
+**Needs** column in the tables below says the same thing. There are three
+answers: *no account needed*, *an API key on any plan*, and *an API key on a
+plan with API access* ([prices](https://qrsalt.com/pricing)).
 
 ### Resource: QR Code
 
@@ -64,7 +85,7 @@ the API's envelope: the result under `data`, paging and notes under `meta`.
 | Get Many | `GET /api/v1/codes` | API access |
 | Update | `PATCH /api/v1/codes/{id}` | API access |
 | Change Many | `POST /api/v1/codes/bulk` | API access; folders, domains and UTM presets each need the plan that includes them |
-| Delete | `DELETE /api/v1/codes/{id}` | API access |
+| Delete | `DELETE /api/v1/codes/{id}` | API access, and a key with the Delete permission |
 | Get Scans | `GET /api/v1/codes/{id}/scans` | API access; breakdowns beyond Country need advanced analytics |
 
 **Create** takes a Destination (or a Payload, for codes that are not a plain
@@ -91,7 +112,12 @@ by mistake; delete them one at a time, or in the dashboard.
 
 **Delete** cannot be undone. The code stops working at once and its short link
 is never handed to anyone else, so an old poster can never point at a stranger's
-site.
+site. It needs a key made with the **Delete** permission, which is never ticked
+by default, and it asks for two things before it calls anything: the *I
+understand this is permanent* toggle, and the code's own name or short link
+ending in **Confirm**. The confirmation goes to QRSalt as `?confirm=` and is
+checked against the record, so a workflow aimed at the wrong ID — or an agent
+acting on something it read — is refused rather than obeyed.
 
 **Get Scans** reads the daily rollups, not a raw event log — raw scan events are
 deleted once counted. From, To and Breakdown are optional; at most 366 days at a
@@ -116,7 +142,14 @@ domain already verified in the workspace (Starter and up).
 
 | Operation | Calls | Needs |
 | --- | --- | --- |
-| Render | `GET /api/qr` | API access |
+| Render | `GET /api/qr` | An API key on any plan, Free included |
+| Render (Free) | `GET /api/qr/free` | Nothing — no credential, no account |
+| Read (Free) | `POST /api/qr/decode` | Nothing — no credential, no account |
+
+**Render is the one keyed operation that is not sold.** Every API key carries
+the `render` scope, so a key minted on the Free plan runs it — which is what
+makes it the way past the hourly ceiling on Render (Free): the allowance
+becomes yours and nobody else can spend it.
 
 A **static** QR code drawn on the spot and handed back as a file in the binary
 field you name. Nothing is stored, nothing is counted, and the content lives
@@ -145,6 +178,129 @@ that cannot be taken back.
 No logo option here: `GET /api/qr` draws the code alone. A logo belongs to a
 saved code, so design it in the dashboard and fetch it with QR Code → Get Image.
 
+#### Render (Free)
+
+**Render (Free) needs no account, no API key and no credential.** Drop the node
+in, type the text, run it: the image is in the binary field you named. It is the
+same drawing code as Render, called on a public endpoint, so a code from it is
+the same symbol a paid one would be.
+
+| Field | What it does |
+| --- | --- |
+| Content | The exact text inside the code, up to 512 bytes |
+| Format | SVG or PNG |
+| Put Output File in Field | The binary field the file lands in (`data` by default) |
+| Options → Size | 64–512 px |
+| Options → Margin | The quiet zone, 0–20 modules |
+| Options → Error Correction | L, M, Q or H |
+| Options → Foreground / Background Colour | Hex colours |
+
+Where it stops, and why: the endpoint is open to anyone, so it is limited by the
+hour, and counted in units of work rather than in calls — an SVG spends one, a
+PNG up to 256 px two, a larger PNG four. The allowance is 480 units an hour,
+which is 480 SVGs or 120 full-size PNGs, and past it the endpoint answers `429`
+with a `Retry-After`. See [The free limit](#the-free-limit) for what the
+allowance is counted against.
+
+Larger sizes, longer content, JPG, WebP and PDF, module and eye shapes, logos
+and everything that is stored and countable are on Render with a key.
+
+#### Read (Free)
+
+**Read (Free) needs no account, no API key and no credential either.** Point it
+at a binary field holding an image and the text inside the code comes out in
+the output JSON.
+
+| Field | What it does |
+| --- | --- |
+| Input Binary Field | The binary field holding the image (`data` by default) |
+| Look For | Which symbology to look for. QR Code by default. |
+
+The picture is posted to QRSalt and read on the server — nothing is decoded
+inside n8n, so this needs no extra packages installed in your instance and adds
+none. Nothing is stored: the image is decoded in memory, the text comes back,
+and no copy is kept.
+
+**Look For** takes one symbology, or **Every Symbology Below**:
+
+| Choice | Reads |
+| --- | --- |
+| QR Code | QR codes. The default. |
+| Code 128 | Code 128, GS1-128 included |
+| Code 39 | Code 39 |
+| EAN-13 (Also UPC-A and ISBN) | EAN-13. A UPC-A is a zero-prefixed EAN-13 and an ISBN is carried as one, so all three come back as `EAN13`. |
+| ITF (Also ITF-14) | Interleaved 2 of 5, which is what an ITF-14 is read as |
+| Data Matrix | Data Matrix |
+| PDF417 | PDF417 |
+| Aztec | Aztec |
+| Every Symbology Below | All eight, in one pass |
+
+That is the whole list — the same symbologies QRSalt itself can draw, each one
+proved by drawing it and reading it back. EAN-8, UPC-E, Codabar, MaxiCode and
+DataBar are **not** read.
+
+The output item:
+
+```json
+{
+  "success": true,
+  "data": "https://example.com/spring-menu",
+  "format": "QRCode",
+  "version": 4,
+  "errorCorrection": "M",
+  "mask": 2
+}
+```
+
+`data` is the text inside the code and `format` is what was found, so a run
+over a mixed folder can branch on it. The three after that are what the symbol
+says about itself — its version, its error-correction level and its data mask —
+and each is `null` when that symbology does not carry one: a Code 128 has none
+of the three.
+
+Where it stops, and why: PNG, JPEG and WebP, up to 4 MB and 24 megapixels, and
+one code per image. An image with no code of the kind you asked for is a `422`,
+and a file that is not one of those three formats is a `415` — decided by the
+file's first bytes, not by its name. There is no "read the code at this URL":
+the endpoint takes uploads only, on purpose.
+
+A read spends 8 units of the free allowance, one more for each extra symbology,
+so 60 QR reads an hour or about 30 with Every Symbology Below. See
+[The free limit](#the-free-limit).
+
+#### The free limit
+
+The free endpoints have no key to count against, so they are counted per caller,
+under a ceiling per source address. That distinction matters here more than
+anywhere else: **on n8n Cloud your workflows leave through addresses shared with
+every other n8n user**, and an allowance counted per address alone would let one
+stranger's busy workflow refuse yours.
+
+So the free operations send a header:
+
+```
+X-QRSalt-Client: n8n-<16 hex characters>
+```
+
+It is a hash of your n8n instance's id — no hostname, no workspace name, no
+address, nothing about you — and it is the same on every call, so it behaves as
+an allowance rather than a fresh bucket each time. QRSalt counts each id
+separately, which is what keeps your calls and a stranger's apart on a shared
+address.
+
+It is fairness, never identity. It authenticates nothing, anyone can send any
+value, and QRSalt grants nothing on the strength of it — which is why there is
+still a ceiling per address above it, ten caller allowances wide. Any
+integration behind a shared address can send its own id in that header; it only
+has to be opaque, stable and at most 64 characters of letters, digits, `.`, `_`
+or `-`.
+
+When one runs out, the `429` says which: your own allowance, or the address
+you are calling from. Either way the answer is the same one — **a QRSalt API
+key has a limit of its own that nobody else can spend.** The free plan can
+create one at [app.qrsalt.com/dashboard/api](https://app.qrsalt.com/dashboard/api);
+put it in the QRSalt API credential and use Render rather than Render (Free).
+
 ### Resource: QR Form
 
 | Operation | Calls | Needs |
@@ -167,17 +323,19 @@ a schedule, use the trigger's `Form Answered` event instead.
 Your QR Menus, read-only, each with its public URL, whether it is published and
 how many times it has been viewed.
 
-### Resource: Folder / Tag
+### Resource: Folder / Tag / UTM Preset
 
 | Operation | Calls | Needs |
 | --- | --- | --- |
 | Folder → Create | `POST /api/v1/folders` | API access; a plan that includes folders |
 | Folder → Get Many | `GET /api/v1/folders` | API access |
 | Tag → Get Many | `GET /api/v1/tags` | API access |
+| UTM Preset → Get Many | `GET /api/v1/utm-presets` | API access |
 
 Folder IDs are what the code operations ask for, so listing them is usually the
 step before filing anything. Tags have no create of their own: naming one on a
-code or in a bulk action makes it.
+code or in a bulk action makes it. UTM presets are made in the dashboard; listing
+them is how you find the ID that Change Many → Apply UTM Preset asks for.
 
 ### Resource: Analytics
 
@@ -192,18 +350,25 @@ not have and the API refuses it by name rather than quietly returning less.
 
 ### What this node does not do
 
-Every operation is an HTTP call to QRSalt, so all of them need an API key and a
-plan that includes API access. Nothing is drawn inside n8n and nothing works
-offline — if all you need is a picture of a string and you never want to know
-whether anyone scanned it, a local generator is the lighter answer.
+Every operation is an HTTP call to QRSalt, so nothing is drawn or read inside
+n8n and nothing works offline. Most operations also need an API key and a plan
+that includes API access; the exceptions are QR Image → Render, which any key
+runs, and QR Image → Render (Free) and Read (Free), which need neither an
+account nor a credential but do need the instance to be able to reach
+`app.qrsalt.com`.
 
-The node does not read QR codes out of images, and it does not upload a logo or
-set a code's design: designs are made in the dashboard and come back with
-QR Code → Get Image.
+Read (Free) reads one code from one image, and only the eight symbologies its
+Look For list names. EAN-8, UPC-E, Codabar, MaxiCode and DataBar are not read.
+It does not read a code out of a PDF or a video either; hand it a PNG, JPEG or
+WebP.
+
+The node does not upload a logo or set a code's design: designs are made in the
+dashboard and come back with QR Code → Get Image.
 
 ## What the trigger node does
 
-**QRSalt Trigger needs a plan that includes webhooks (Business).** Activate a
+**QRSalt Trigger needs a plan that includes webhooks (Business)** —
+[prices](https://qrsalt.com/pricing). Activate a
 workflow on a cheaper plan and the node stops with that sentence — it asks
 `GET /api/v1/me` first, precisely so you do not get a confusing 403 from a call
 you never made.
@@ -270,6 +435,8 @@ Later, when the menu moves:
 | Message | What it means |
 | --- | --- |
 | `That API key is not valid.` | Wrong, revoked, or its workspace is gone |
+| `… over the API comes with Pro and above.` | The key is fine; the plan does not include API access. The node adds the link to [qrsalt.com/pricing](https://qrsalt.com/pricing) |
+| `This API key does not have the "write" scope.` | The plan is fine; the key was made narrower. Make one with it under Settings → API keys |
 | `Webhooks are not included in …` | The trigger needs a Business plan |
 | `A static code … cannot be repointed.` | Make a dynamic code instead |
 | `Too many requests. Slow down…` | The per-key rate limit; the answer carries `retry-after` |

@@ -1,7 +1,118 @@
-import type { INodeType, INodeTypeDescription } from 'n8n-workflow'
-import { NodeConnectionTypes } from 'n8n-workflow'
+import type {
+  IExecuteSingleFunctions,
+  IHttpRequestOptions,
+  IN8nHttpFullResponse,
+  INodeExecutionData,
+  INodeType,
+  INodeTypeDescription,
+} from 'n8n-workflow'
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
+import { sendFairnessId } from './fairness'
+import { PRICING, withPlanNotes } from './plans'
+
+/** Where the keyless calls live. Not the credential's base URL: there is no credential. */
+const FREE_RENDER_ORIGIN = 'https://app.qrsalt.com'
+
+/**
+ * Put the chosen binary field in the request body.
+ *
+ * The read endpoint takes the image itself, not a link to one, so the file has
+ * to travel with the call. Declarative routing has no way to say "the body is
+ * this binary field", hence the hook.
+ */
+async function sendBinaryImage(
+  this: IExecuteSingleFunctions,
+  requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+  const field = this.getNodeParameter('readBinaryProperty') as string
+  requestOptions.body = await this.helpers.getBinaryDataBuffer(field)
+  return requestOptions
+}
+
+/**
+ * Refuse a delete that nobody actually meant.
+ *
+ * Two things have to be true before the call leaves n8n, and both are checked
+ * here rather than only in the editor: the person building the workflow ticked
+ * the box that says it is permanent, and they wrote down which code they are
+ * deleting. The second one travels to QRSalt as `?confirm=`, where it is
+ * checked against the stored record — so a workflow that guesses, or an agent
+ * that filled the field from something it read, is refused at the API too and
+ * not just here.
+ */
+async function confirmDelete(
+  this: IExecuteSingleFunctions,
+  requestOptions: IHttpRequestOptions,
+): Promise<IHttpRequestOptions> {
+  const understood = this.getNodeParameter('deleteIsPermanent', false) as boolean
+  const typed = String(this.getNodeParameter('deleteConfirm', '') ?? '').trim()
+
+  if (!understood) {
+    throw new NodeOperationError(
+      this.getNode(),
+      'Tick “I understand this is permanent” before this node can delete a QR code.',
+      { description: 'Deleting stops the printed code for good, and its short link is never reused.' },
+    )
+  }
+  if (typed === '') {
+    throw new NodeOperationError(
+      this.getNode(),
+      'Type the code’s name, or its short link ending, in Confirm.',
+      { description: 'QRSalt checks it against the code before deleting anything.' },
+    )
+  }
+
+  requestOptions.qs = { ...(requestOptions.qs ?? {}), confirm: typed }
+  return requestOptions
+}
+
+interface DecodeAnswer {
+  data?: {
+    text?: string
+    format?: string
+    version?: number | null
+    errorCorrection?: string | null
+    mask?: number | null
+  }
+}
+
+/**
+ * The decoded text as the output item.
+ *
+ * `data` holds the text, which is where the QR-reading nodes people already
+ * have put it, so a workflow switched over to this one keeps working. The rest
+ * is what the symbol says about itself and is only ever what the API really
+ * returned — a code drawn without a mask reported comes back with `mask: null`
+ * rather than a guess.
+ */
+async function decodedQr(
+  this: IExecuteSingleFunctions,
+  _items: INodeExecutionData[],
+  response: IN8nHttpFullResponse,
+): Promise<INodeExecutionData[]> {
+  const body: DecodeAnswer =
+    typeof response.body === 'string' ? JSON.parse(response.body) : (response.body as DecodeAnswer)
+  const code = body.data ?? {}
+  return [
+    {
+      json: {
+        success: true,
+        data: code.text ?? '',
+        format: code.format ?? null,
+        version: code.version ?? null,
+        errorCorrection: code.errorCorrection ?? null,
+        mask: code.mask ?? null,
+      },
+    },
+  ]
+}
 
 export class QrSalt implements INodeType {
+  /** Every operation is given its plan note and refusal handling on the way out. */
+  constructor() {
+    withPlanNotes(this.description)
+  }
+
   description: INodeTypeDescription = {
     displayName: 'QRSalt',
     name: 'qrSalt',
@@ -9,12 +120,23 @@ export class QrSalt implements INodeType {
     group: ['output'],
     version: 1,
     subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-    description: 'Create and re-point QR codes and short links, and read their scans',
+    description:
+      'Generate QR codes and short links, render and read QR code images, re-point a printed QR code, and read its scans. Rendering and reading an image need no account; everything else needs an API key on a plan with API access.',
     defaults: { name: 'QRSalt' },
     usableAsTool: true,
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
-    credentials: [{ name: 'qrSaltApi', required: true }],
+    // Almost every operation needs a key. The two free ones under QR Image —
+    // Render (Free) and Read (Free) — call public endpoints, so the credential
+    // is hidden there rather than demanded from somebody who is still deciding
+    // whether to sign up.
+    credentials: [
+      {
+        name: 'qrSaltApi',
+        required: true,
+        displayOptions: { hide: { resource: ['image'], operation: ['renderFree', 'readFree'] } },
+      },
+    ],
     requestDefaults: {
       baseURL: '={{$credentials.baseUrl}}',
       headers: { Accept: 'application/json' },
@@ -35,7 +157,18 @@ export class QrSalt implements INodeType {
           { name: 'QR Menu', value: 'page' },
           { name: 'Short Link', value: 'link' },
           { name: 'Tag', value: 'tag' },
+          { name: 'UTM Preset', value: 'utmPreset' },
         ],
+      },
+      {
+        // Above the operation picker, so it is read before an operation is
+        // chosen rather than after one has failed. Hidden on the two keyless
+        // operations, which is also where the credential is hidden.
+        displayName: `This operation needs a QRSalt API key on a plan that includes API access. <a href="${PRICING}" target="_blank">Plans and prices</a>. QR Image → Render (Free) and Read (Free) need no account at all, and Render works with a key made on the Free plan.`,
+        name: 'planNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { hide: { resource: ['image'], operation: ['renderFree', 'readFree'] } },
       },
 
       {
@@ -64,6 +197,7 @@ export class QrSalt implements INodeType {
             action: 'Delete a QR code',
             routing: {
               request: { method: 'DELETE', url: '=/api/v1/codes/{{$parameter["codeId"]}}' },
+              send: { preSend: [confirmDelete] },
             },
           },
           {
@@ -75,7 +209,7 @@ export class QrSalt implements INodeType {
           {
             name: 'Get Image',
             value: 'getImage',
-            action: 'Download a QR code as a file',
+            action: 'Download a saved QR code image as a file',
             routing: {
               request: {
                 method: 'GET',
@@ -128,6 +262,35 @@ export class QrSalt implements INodeType {
         displayOptions: {
           show: { resource: ['code'], operation: ['get', 'update', 'delete', 'scans', 'getImage'] },
         },
+      },
+      {
+        // Shown before the two confirmations, so what is about to happen is
+        // read before the boxes that agree to it.
+        displayName: `Deleting is permanent. The printed code stops working straight away, it cannot be restored, and its short link is never given to anyone else. Pause it instead if you only want it to stop for now. This needs an API key with the Delete permission, which is never ticked for a new key. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
+        name: 'deleteNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
+      },
+      {
+        displayName: 'I Understand This Is Permanent',
+        name: 'deleteIsPermanent',
+        type: 'boolean',
+        default: false,
+        description:
+          'Whether to go ahead with a delete that cannot be undone. The node refuses to call QRSalt while this is off.',
+        displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
+      },
+      {
+        displayName: 'Confirm',
+        name: 'deleteConfirm',
+        type: 'string',
+        required: true,
+        default: '',
+        placeholder: 'e.g. Spring menu',
+        description:
+          'The code’s name, or the ending of its short link. QRSalt checks it against the code and deletes nothing if it does not match, so a workflow pointed at the wrong ID stops here.',
+        displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
       },
       {
         displayName: 'Destination',
@@ -459,6 +622,50 @@ export class QrSalt implements INodeType {
               },
             },
           },
+          {
+            name: 'Read (Free)',
+            value: 'readFree',
+            action: 'Read a QR code or barcode from an image without an account',
+            routing: {
+              request: {
+                method: 'POST',
+                baseURL: FREE_RENDER_ORIGIN,
+                url: '/api/qr/decode',
+                headers: { Accept: 'application/json', 'Content-Type': 'application/octet-stream' },
+                // The body is the image, put there by the hook below, so n8n
+                // must neither serialise it nor parse the answer for us.
+                json: false,
+              },
+              send: { preSend: [sendBinaryImage, sendFairnessId] },
+              output: { postReceive: [decodedQr] },
+            },
+          },
+          {
+            name: 'Render (Free)',
+            value: 'renderFree',
+            action: 'Render a QR code image without an account',
+            routing: {
+              request: {
+                method: 'GET',
+                // The one call in this package that carries no credential, so it
+                // names its own origin instead of reading the one on the key.
+                baseURL: FREE_RENDER_ORIGIN,
+                url: '/api/qr/free',
+                headers: { Accept: '*/*' },
+                encoding: 'arraybuffer',
+                json: false,
+              },
+              send: { preSend: [sendFairnessId] },
+              output: {
+                postReceive: [
+                  {
+                    type: 'binaryData',
+                    properties: { destinationProperty: '={{$parameter["binaryProperty"]}}' },
+                  },
+                ],
+              },
+            },
+          },
         ],
       },
       {
@@ -499,7 +706,7 @@ export class QrSalt implements INodeType {
         default: 'data',
         hint: 'The name of the output binary field to put the file in',
         displayOptions: {
-          show: { resource: ['code', 'image'], operation: ['getImage', 'render'] },
+          show: { resource: ['code', 'image'], operation: ['getImage', 'render', 'renderFree'] },
         },
       },
       {
@@ -665,6 +872,126 @@ export class QrSalt implements INodeType {
       },
 
       {
+        displayName: 'Content',
+        name: 'freeContent',
+        type: 'string',
+        required: true,
+        default: '',
+        placeholder: 'e.g. https://example.com',
+        description:
+          'The exact text inside the pattern, up to 512 bytes. No account and no API key: the image comes straight back. Nothing is stored, so the code cannot be re-pointed later. There is an hourly limit on the free endpoint; a free API key gives you one of your own, and Render is the operation that uses it.',
+        displayOptions: { show: { resource: ['image'], operation: ['renderFree'] } },
+        routing: { send: { type: 'query', property: 'data' } },
+      },
+      {
+        displayName: 'Format',
+        name: 'freeFormat',
+        type: 'options',
+        default: 'png',
+        description: 'The file that comes back. JPG, WebP and PDF are on Render, which uses an API key.',
+        displayOptions: { show: { resource: ['image'], operation: ['renderFree'] } },
+        options: [
+          { name: 'PNG', value: 'png' },
+          { name: 'SVG', value: 'svg' },
+        ],
+        routing: { send: { type: 'query', property: 'format' } },
+      },
+      {
+        displayName: 'Options',
+        name: 'freeOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        description:
+          'The free endpoint draws colour, margin and error correction. Module shapes, eye shapes and logos are on Render, which uses an API key.',
+        displayOptions: { show: { resource: ['image'], operation: ['renderFree'] } },
+        options: [
+          {
+            displayName: 'Background Colour',
+            name: 'bgcolor',
+            type: 'color',
+            default: '#FFFFFF',
+            description: 'The colour behind the pattern, as a hex value',
+            routing: { send: { type: 'query', property: 'bgcolor' } },
+          },
+          {
+            displayName: 'Error Correction',
+            name: 'ecc',
+            type: 'options',
+            default: 'M',
+            description:
+              'How much of the code can be damaged and still read. Higher levels hold less data in the same size.',
+            options: [
+              { name: 'H (30%)', value: 'H' },
+              { name: 'L (7%)', value: 'L' },
+              { name: 'M (15%)', value: 'M' },
+              { name: 'Q (25%)', value: 'Q' },
+            ],
+            routing: { send: { type: 'query', property: 'ecc' } },
+          },
+          {
+            displayName: 'Foreground Colour',
+            name: 'color',
+            type: 'color',
+            default: '#000000',
+            description: 'The colour of the pattern, as a hex value. Keep it dark on a light background.',
+            routing: { send: { type: 'query', property: 'color' } },
+          },
+          {
+            displayName: 'Margin',
+            name: 'margin',
+            type: 'number',
+            typeOptions: { minValue: 0, maxValue: 20 },
+            default: 4,
+            description: 'The quiet zone around the code, in modules rather than pixels',
+            routing: { send: { type: 'query', property: 'margin' } },
+          },
+          {
+            displayName: 'Size (Px)',
+            name: 'size',
+            type: 'number',
+            typeOptions: { minValue: 64, maxValue: 512 },
+            default: 512,
+            description: 'Width and height in pixels. Larger exports are on Render, which uses an API key.',
+            routing: { send: { type: 'query', property: 'size' } },
+          },
+        ],
+      },
+
+      {
+        displayName: 'Input Binary Field',
+        name: 'readBinaryProperty',
+        type: 'string',
+        required: true,
+        default: 'data',
+        hint: 'The name of the input binary field holding the image to read',
+        description:
+          'The picture is posted to QRSalt and read there. PNG, JPEG and WebP, up to 4 MB. Nothing is stored: the text comes back and the image is gone.',
+        displayOptions: { show: { resource: ['image'], operation: ['readFree'] } },
+      },
+      {
+        displayName: 'Look For',
+        name: 'readFormats',
+        type: 'options',
+        default: 'qr',
+        description:
+          'Which symbology to look for. QR alone is the fast case; every extra one is another search over the same pixels and costs more of the free allowance.',
+        displayOptions: { show: { resource: ['image'], operation: ['readFree'] } },
+        options: [
+          { name: 'Aztec', value: 'aztec' },
+          { name: 'Code 128', value: 'code128' },
+          { name: 'Code 39', value: 'code39' },
+          { name: 'Data Matrix', value: 'datamatrix' },
+          { name: 'EAN-13 (Also UPC-A and ISBN)', value: 'ean13' },
+          { name: 'Every Symbology Below', value: 'all' },
+          { name: 'ITF (Also ITF-14)', value: 'itf' },
+          { name: 'PDF417', value: 'pdf417' },
+          { name: 'QR Code', value: 'qr' },
+        ],
+        routing: { send: { type: 'query', property: 'formats' } },
+      },
+
+      {
         displayName: 'Operation',
         name: 'operation',
         type: 'options',
@@ -763,7 +1090,7 @@ export class QrSalt implements INodeType {
           {
             name: 'Get',
             value: 'get',
-            action: 'Get scan analytics',
+            action: 'Get QR code and short link scan analytics',
             routing: { request: { method: 'GET', url: '/api/v1/analytics' } },
           },
         ],
@@ -977,6 +1304,25 @@ export class QrSalt implements INodeType {
             value: 'getAllTags',
             action: 'Get many tags',
             routing: { request: { method: 'GET', url: '/api/v1/tags' } },
+          },
+        ],
+      },
+
+      {
+        // The bulk "Apply UTM Preset" action wants a preset ID, and until this
+        // was here there was no way to find one without leaving n8n.
+        displayName: 'Operation',
+        name: 'operation',
+        type: 'options',
+        noDataExpression: true,
+        displayOptions: { show: { resource: ['utmPreset'] } },
+        default: 'getAllUtmPresets',
+        options: [
+          {
+            name: 'Get Many',
+            value: 'getAllUtmPresets',
+            action: 'Get many UTM presets',
+            routing: { request: { method: 'GET', url: '/api/v1/utm-presets' } },
           },
         ],
       },

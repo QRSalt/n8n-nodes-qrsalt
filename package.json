@@ -1,13 +1,29 @@
 {
   "name": "n8n-nodes-qrsalt",
   "version": "0.1.0",
-  "description": "QRSalt nodes for n8n: render QR images, create and re-point QR codes and short links, read scan analytics, and trigger a workflow when a code is scanned.",
+  "description": "QRSalt nodes for n8n: generate QR codes and short links, render and read QR code images, re-point a printed QR code, read its scan analytics, and trigger on every scan.",
   "keywords": [
     "n8n-community-node-package",
+    "n8n",
     "qr",
+    "qr code",
     "qr-code",
     "qrcode",
-    "short-link",
+    "qr code generator",
+    "qr generator",
+    "qr code api",
+    "qr scanner",
+    "qr reader",
+    "barcode",
+    "barcode reader",
+    "barcode scanner",
+    "ean13",
+    "code128",
+    "datamatrix",
+    "pdf417",
+    "dynamic qr",
+    "short link",
+    "url shortener",
     "analytics"
   ],
   "license": "MIT",
@@ -31,7 +47,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test \"test/*.test.mjs\"",
     "scan": "scan-community-package n8n-nodes-qrsalt",
-    "prepublishOnly": "n8n-node prerelease"
+    "prepack": "npm run build"
   },
   "files": [
     "dist"

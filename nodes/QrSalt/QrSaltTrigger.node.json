@@ -2,7 +2,17 @@
   "node": "n8n-nodes-qrsalt.qrSaltTrigger",
   "nodeVersion": "1.0",
   "codexVersion": "1.0",
-  "categories": ["Marketing & Content", "Utility"],
+  "categories": ["Marketing & Content", "Analytics", "Utility"],
+  "alias": [
+    "QR",
+    "QR Code",
+    "QRCode",
+    "QR Code Scanned",
+    "Scan",
+    "Short Link",
+    "Dynamic QR",
+    "Webhook"
+  ],
   "resources": {
     "credentialDocumentation": [{ "url": "https://qrsalt.com/qr-code-api" }],
     "primaryDocumentation": [{ "url": "https://qrsalt.com/qr-code-api" }]

@@ -28,7 +28,7 @@ export class QrSaltApi implements ICredentialType {
       required: true,
       placeholder: 'e.g. qr_live_...',
       description:
-        'Made in the QRSalt dashboard under Settings → API keys. It is shown once, so store it here when you create it. An API key needs a plan that includes API access.',
+        'Made in the QRSalt dashboard under Settings → API keys. It is shown once, so store it here when you create it. Any plan can make a key, but a key only renders images unless the plan includes API access: https://qrsalt.com/pricing.',
     },
     {
       displayName: 'Base URL',
@@ -50,12 +50,42 @@ export class QrSaltApi implements ICredentialType {
     },
   }
 
-  // `/me` succeeds for any valid key; listing codes would call an empty workspace broken.
+  /**
+   * `/me` succeeds for any valid key; listing codes would call an empty
+   * workspace broken. It is also the one endpoint a render-only key can reach,
+   * so a Free-plan key proves itself here rather than being reported as wrong.
+   *
+   * The two rules below turn that into the sentence the person actually needs.
+   * A valid key on a plan without API access passes the request and fails the
+   * rule, which is the only way n8n has of saying "this works, but not for what
+   * you are about to do" — and it is worth saying here rather than in a 402
+   * six steps into a workflow.
+   */
   test: ICredentialTestRequest = {
     request: {
       baseURL: '={{$credentials.baseUrl}}',
       url: '/api/v1/me',
       method: 'GET',
     },
+    rules: [
+      {
+        type: 'responseSuccessBody',
+        properties: {
+          key: 'data.workspace.plan',
+          value: 'FREE',
+          message:
+            'This key works, but the Free plan does not include API access, so only QR Image → Render will run. Plans and prices: https://qrsalt.com/pricing',
+        },
+      },
+      {
+        type: 'responseSuccessBody',
+        properties: {
+          key: 'data.workspace.plan',
+          value: 'STARTER',
+          message:
+            'This key works, but Starter does not include API access, so only QR Image → Render will run. Plans and prices: https://qrsalt.com/pricing',
+        },
+      },
+    ],
   }
 }

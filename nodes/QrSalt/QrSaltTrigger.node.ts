@@ -8,6 +8,7 @@ import type {
 } from 'n8n-workflow'
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 
+import { PRICING } from './plans'
 import { SIGNATURE_HEADER, verifySignature } from './signature'
 
 /**
@@ -38,7 +39,8 @@ export class QrSaltTrigger implements INodeType {
     group: ['trigger'],
     version: 1,
     subtitle: '={{$parameter["events"].join(", ")}}',
-    description: 'Starts a workflow when a QRSalt code is scanned, created or changed',
+    description:
+      'Starts a workflow when a QR code or short link is scanned, created or changed. Needs an API key on a plan that includes webhooks.',
     defaults: { name: 'QRSalt Trigger' },
     inputs: [],
     outputs: [NodeConnectionTypes.Main],
@@ -54,6 +56,12 @@ export class QrSaltTrigger implements INodeType {
       },
     ],
     properties: [
+      {
+        displayName: `This trigger needs a QRSalt plan that includes webhooks. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
+        name: 'planNotice',
+        type: 'notice',
+        default: '',
+      },
       {
         displayName: 'Events',
         name: 'events',
@@ -147,8 +155,7 @@ export class QrSaltTrigger implements INodeType {
         } catch (error) {
           throw new NodeApiError(this.getNode(), error as never, {
             message: 'QRSalt would not accept this API key.',
-            description:
-              'Check the key in the credential, and that its workspace still has a plan with API access.',
+            description: `Check the key in the credential, and that its workspace still has a plan with API access: ${PRICING}`,
           })
         }
 
@@ -159,7 +166,7 @@ export class QrSaltTrigger implements INodeType {
             `Webhooks are not included in ${plan}, so this trigger cannot subscribe.`,
             {
               description:
-                'Webhooks are a Business feature. Upgrade the workspace in the QRSalt dashboard, or read scans on a schedule with the QRSalt node instead.',
+                `Webhooks are a Business feature. Plans and prices: ${PRICING}. Or read scans on a schedule with the QRSalt node instead.`,
             },
           )
         }
