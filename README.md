@@ -143,8 +143,8 @@ result under `data`, paging and notes under `meta`.
 | Get | Code ID | The code |
 | Get Many | Limit, Offset, Search, Filters (status, tag, folder, domain, output) | A list, with `meta.nextOffset` |
 | Update | Code ID, then any of Destination, Name, Slug, Domain, Folder, Tags, Status, Note | The updated code |
-| Delete | Code ID, the permanent-delete toggle, and Confirm | Confirmation |
-| Change Many | Code IDs (up to 500), Action: status, folder, domain, tags or UTM preset | Each ID under `results`, done or skipped with a reason |
+| Delete | Code ID | Confirmation |
+| Change Many | Code IDs (up to 500), Action: status, folder, domain, tags, UTM preset or delete | Each ID under `results`, done or skipped with a reason |
 | Get Image | Code ID, Format, Size or Printed Width | The file, in the binary field you name |
 | Get Scans | Code ID, From, To, Breakdown | Totals and a daily series |
 
@@ -162,16 +162,20 @@ names what is missing.
 dashboard design, colours and logo — straight into a binary field, so the next
 node can attach or upload it with no download step between.
 
-**Delete** cannot be undone and asks for two things first: the *I understand
-this is permanent* toggle, and the code's own name or short link ending in
-**Confirm**, which QRSalt checks against the record before erasing anything. A
-workflow aimed at the wrong ID stops there. It also needs a key made with the
-**Delete** permission, which is never ticked by default.
+**Delete** cannot be undone, and there is nothing to type before it runs. The
+guard is the key: deleting needs one made with the **Delete** permission, which
+is never ticked by default and which the *Write* permission does not cover. A
+workflow is written on purpose by a person choosing this operation, and a box to
+tick is one somebody ticks once and then forgets.
 
 Deleting a **dynamic** code stops every printed copy at the next scan, and its
 short link is never handed to anyone else. Deleting a **static** code removes
 only the saved record: the printed copies carry their destination inside the
-pattern and keep working. There is no bulk delete.
+pattern and keep working.
+
+**Change Many → Delete Them** does the same to up to 500 codes in one call, and
+wants the same **Delete** permission. An ID that is not one of yours is reported
+as skipped, never deleted, and every short link it retires stays retired.
 
 **Get Scans** takes at most 366 days at a time, and your plan's retention can
 shorten the range — when it does, `meta.clamped` is true and `meta.note` says so.
@@ -203,8 +207,11 @@ Render (Free) offers colour, margin, error correction and size only; shapes and
 the larger formats are on Render. Neither draws a logo — a logo belongs to a
 saved code, so design it in the dashboard and fetch it with QR Code → Get Image.
 
-**Read (Free)** takes a PNG, JPEG or WebP out of a binary field and returns the
-text inside the code. Nothing is installed in your n8n and nothing is stored.
+**Read (Free)** takes a PNG, JPEG or WebP out of a binary field — up to 12 MB,
+which is a phone photo at full resolution — and returns the text inside the
+code. Nothing is installed in your n8n, and nothing is kept at the other end
+either: the image is read in memory and then discarded, never written to disk
+and never logged, and neither is the text found in it.
 
 | Look For | Reads |
 | --- | --- |
@@ -332,9 +339,10 @@ the endpoint is registered.
 | `Webhooks are not included in …` | The trigger needs a plan with webhooks |
 | `A static code … cannot be repointed.` | Only dynamic codes can be updated. Create a new one |
 | `Too many requests. Slow down…` | Rate limited; the answer carries `retry-after` |
-| `Tick "I understand this is permanent"…` | The delete's confirmations are not both filled in |
+| `This API key does not have the "delete" scope.` | Deleting, one code or many, needs a key made with the Delete permission |
 | HTTP 422 from Read (Free) | No code of the kind you asked for was found in the image |
 | HTTP 415 from Read (Free) | Not a PNG, JPEG or WebP — judged by the file's bytes, not its name |
+| HTTP 413 from Read (Free) | The image is over 12 MB |
 | `The range was shortened to what your plan retains.` | Not an error: `meta.clamped` on an analytics answer |
 
 Every refusal keeps the API's own sentence and adds what to do about it.

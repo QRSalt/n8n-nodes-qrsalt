@@ -68,9 +68,9 @@ const RENDER_PARAMS = new Set([
 // inside somebody's workflow.
 const DECODE_FORMATS = ['qr', 'code128', 'code39', 'ean13', 'itf', 'datamatrix', 'pdf417', 'aztec']
 
-// The actions `POST /api/v1/codes/bulk` accepts, less `delete`, which this node
-// deliberately does not offer.
-const BULK_ACTIONS = ['domain', 'folder', 'tags', 'status', 'utm']
+// Every action `POST /api/v1/codes/bulk` accepts. `delete` is one of them, and
+// the key's Delete permission is what stands in front of it.
+const BULK_ACTIONS = ['domain', 'folder', 'tags', 'status', 'utm', 'delete']
 
 const EVENTS = ['code.created', 'code.updated', 'code.disabled', 'scan.recorded', 'form.submitted']
 
@@ -362,30 +362,30 @@ test('the code image sends only the parameters that endpoint reads', () => {
   )
 })
 
-test('the bulk action offers what the API accepts, and never a bulk delete', () => {
+test('the bulk action offers what the API accepts, delete included', () => {
   const [action] = named(new QrSalt(), 'bulkAction')
   const values = (action.options ?? []).map((option) => option.value)
   assert.deepEqual([...values].sort(), [...BULK_ACTIONS].sort())
-  // Deleting hundreds of live codes from a workflow is not an offer worth making.
-  assert.ok(!values.includes('delete'))
+
+  // Erasing up to five hundred codes says so, and names the permission that is
+  // the only thing in front of it.
+  const [notice] = named(new QrSalt(), 'bulkDeleteNotice')
+  assert.equal(notice.type, 'notice')
+  assert.deepEqual(notice.displayOptions.show.bulkAction, ['delete'])
+  assert.match(notice.displayName, /permanently/i)
+  assert.match(notice.displayName, /Delete permission/)
 })
 
 /**
  * Deleting: the one operation here that cannot be undone.
  *
- * An agent can drive this node (`usableAsTool`), and an agent's instructions
- * can come from a page somebody else wrote. So the delete asks for two things
- * that an instruction saying "delete it" does not carry: a box ticked in the
- * editor, and the code's own name or short link ending, which QRSalt checks
- * against the record before it erases anything.
+ * There is nothing to type in front of it. A workflow is written on purpose by
+ * a person choosing this operation, and the guard is the key: deleting needs
+ * one made with the Delete permission, which is never ticked by default and
+ * which the Write permission does not cover. The MCP connector is the place
+ * that still asks for a typed confirmation, because there the caller is a
+ * model acting on text it read somewhere.
  */
-function fakeContext(params) {
-  return {
-    getNode: () => ({ name: 'QRSalt', type: 'n8n-nodes-qrsalt.qrSalt', typeVersion: 1 }),
-    getNodeParameter: (name, fallback) => (name in params ? params[name] : fallback),
-  }
-}
-
 const deleteOperation = () =>
   named(new QrSalt(), 'operation')
     .flatMap((property) => property.options ?? [])
@@ -397,37 +397,24 @@ test('deleting a code says it is permanent and names the permission it needs', (
   assert.match(operation.description, /Delete permission/)
   assert.ok(operation.description.includes('https://qrsalt.com/pricing'))
 
-  const [toggle] = named(new QrSalt(), 'deleteIsPermanent')
-  assert.equal(toggle.type, 'boolean')
-  assert.equal(toggle.default, false, 'the permanent-delete toggle must start off')
-  const [confirm] = named(new QrSalt(), 'deleteConfirm')
-  assert.equal(confirm.required, true)
-
-  for (const field of [toggle, confirm]) {
-    assert.deepEqual(field.displayOptions.show.operation, ['delete'])
-    assert.deepEqual(field.displayOptions.show.resource, ['code'])
-  }
+  const [notice] = named(new QrSalt(), 'deleteNotice')
+  assert.match(notice.displayName, /cannot be restored/i)
+  assert.deepEqual(notice.displayOptions.show.operation, ['delete'])
 })
 
-test('a delete goes nowhere without the toggle and the confirmation', async () => {
-  const [hook] = deleteOperation().routing.send.preSend
-  assert.equal(typeof hook, 'function', 'the delete has no check in front of it')
+test('a delete asks for nothing but the code id', () => {
+  const operation = deleteOperation()
+  assert.equal(operation.routing.send, undefined, 'no check stands between the node and the API')
 
-  await assert.rejects(
-    () => hook.call(fakeContext({ deleteIsPermanent: false, deleteConfirm: 'Spring menu' }), {}),
-    /permanent/i,
-  )
-  await assert.rejects(
-    () => hook.call(fakeContext({ deleteIsPermanent: true, deleteConfirm: '   ' }), {}),
-    /short link ending/i,
-  )
+  const fields = named(new QrSalt(), 'deleteIsPermanent').concat(named(new QrSalt(), 'deleteConfirm'))
+  assert.deepEqual(fields, [], 'the toggle and the typed confirmation are gone')
 
-  // With both, the confirmation travels to the API, which checks it too.
-  const sent = await hook.call(
-    fakeContext({ deleteIsPermanent: true, deleteConfirm: '  Spring menu  ' }),
-    {},
+  const shown = new QrSalt().description.properties.filter(
+    (property) =>
+      property.type !== 'notice' &&
+      (property.displayOptions?.show?.operation ?? []).includes('delete'),
   )
-  assert.deepEqual(sent.qs, { confirm: 'Spring menu' })
+  assert.deepEqual(shown.map((property) => property.name), ['codeId'])
 })
 
 test('nothing in this node deletes more than one code', () => {

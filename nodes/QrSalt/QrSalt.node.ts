@@ -6,7 +6,7 @@ import type {
   INodeType,
   INodeTypeDescription,
 } from 'n8n-workflow'
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
+import { NodeConnectionTypes } from 'n8n-workflow'
 import { sendFairnessId } from './fairness'
 import { PRICING, withPlanNotes } from './plans'
 
@@ -20,40 +20,6 @@ async function sendBinaryImage(
 ): Promise<IHttpRequestOptions> {
   const field = this.getNodeParameter('readBinaryProperty') as string
   requestOptions.body = await this.helpers.getBinaryDataBuffer(field)
-  return requestOptions
-}
-
-/**
- * Refuse a delete that nobody actually meant. Two things have to be true before
- * the call leaves n8n: the permanent-delete box is ticked, and the code is named
- * in Confirm. The name travels on as `?confirm=` and is checked there too.
- */
-async function confirmDelete(
-  this: IExecuteSingleFunctions,
-  requestOptions: IHttpRequestOptions,
-): Promise<IHttpRequestOptions> {
-  const understood = this.getNodeParameter('deleteIsPermanent', false) as boolean
-  const typed = String(this.getNodeParameter('deleteConfirm', '') ?? '').trim()
-
-  if (!understood) {
-    throw new NodeOperationError(
-      this.getNode(),
-      'Tick “I understand this is permanent” before this node can delete a QR code.',
-      {
-        description:
-          'Deleting a dynamic code stops the printed one for good, and its short link is never reused. Deleting a static code removes the saved record only.',
-      },
-    )
-  }
-  if (typed === '') {
-    throw new NodeOperationError(
-      this.getNode(),
-      'Type the code’s name, or its short link ending, in Confirm.',
-      { description: 'QRSalt checks it against the code before deleting anything.' },
-    )
-  }
-
-  requestOptions.qs = { ...(requestOptions.qs ?? {}), confirm: typed }
   return requestOptions
 }
 
@@ -179,7 +145,6 @@ export class QrSalt implements INodeType {
             action: 'Delete a QR code',
             routing: {
               request: { method: 'DELETE', url: '=/api/v1/codes/{{$parameter["codeId"]}}' },
-              send: { preSend: [confirmDelete] },
             },
           },
           {
@@ -250,26 +215,6 @@ export class QrSalt implements INodeType {
         name: 'deleteNotice',
         type: 'notice',
         default: '',
-        displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
-      },
-      {
-        displayName: 'I Understand This Is Permanent',
-        name: 'deleteIsPermanent',
-        type: 'boolean',
-        default: false,
-        description:
-          'Whether to go ahead with a delete that cannot be undone. The node refuses to call QRSalt while this is off.',
-        displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
-      },
-      {
-        displayName: 'Confirm',
-        name: 'deleteConfirm',
-        type: 'string',
-        required: true,
-        default: '',
-        placeholder: 'e.g. Spring menu',
-        description:
-          'The code’s name, or the ending of its short link. QRSalt checks it against the code and deletes nothing if it does not match, so a workflow pointed at the wrong ID stops here.',
         displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
       },
       {
@@ -503,11 +448,19 @@ export class QrSalt implements INodeType {
         options: [
           { name: 'Add or Remove Tags', value: 'tags' },
           { name: 'Apply UTM Preset', value: 'utm' },
+          { name: 'Delete Them', value: 'delete' },
           { name: 'Move to Domain', value: 'domain' },
           { name: 'Move to Folder', value: 'folder' },
           { name: 'Set Status', value: 'status' },
         ],
         routing: { send: { type: 'body', property: 'action' } },
+      },
+      {
+        displayName: `Every code listed above is deleted permanently and none of them can be restored. A <b>dynamic</b> code stops working straight away and its short link is never given to anyone else; a <b>static</b> code loses its saved record only, and copies already printed keep working. Pause them instead if you only want them to stop for now. This needs an API key with the Delete permission — the <i>Write</i> permission is not enough, and neither is ticked for a new key. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
+        name: 'bulkDeleteNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['code'], operation: ['bulk'], bulkAction: ['delete'] } },
       },
       {
         displayName: 'Status',
@@ -946,7 +899,7 @@ export class QrSalt implements INodeType {
         default: 'data',
         hint: 'The name of the input binary field holding the image to read',
         description:
-          'The picture is posted to QRSalt and read there. PNG, JPEG and WebP. Nothing is stored: the text comes back and the image is gone.',
+          'The picture is posted to QRSalt and read there. PNG, JPEG or WebP, up to 12 MB. Nothing is kept: the image is read in memory, the text comes back, and the file is discarded — never written to disk and never logged.',
         displayOptions: { show: { resource: ['image'], operation: ['readFree'] } },
       },
       {
