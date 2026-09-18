@@ -1,0 +1,87 @@
+{
+  "name": "QRSalt — a print-ready code for every row of a sheet",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "0b1c2d3e-4f50-4617-8829-9a0b1c2d3e4f",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-420, 0]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1c2d3e4f-5061-4728-993a-ab1c2d3e4f50",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-200, 0],
+      "notes": "One row per code: a title column and a url column."
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "create",
+        "destination": "={{ $json.url }}",
+        "name": "={{ $json.title }}",
+        "type": "URL",
+        "additionalFields": {
+          "kind": "DYNAMIC",
+          "tags": ["print-run"]
+        }
+      },
+      "id": "2d3e4f50-6172-4839-aa4b-bc2d3e4f5061",
+      "name": "Create the code",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [20, 0],
+      "notes": "Dynamic, so it can be re-pointed after printing."
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "getImage",
+        "codeId": "={{ $json.data.id }}",
+        "format": "pdf",
+        "binaryProperty": "data",
+        "imageOptions": { "mm": 40 }
+      },
+      "id": "3e4f5061-7283-494a-bb5c-cd3e4f506172",
+      "name": "Get it as a PDF",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "sendTo": "print@example.com",
+        "subject": "=QR code: {{ $('Google Sheets').item.json.title }}",
+        "message": "Attached, 40 mm wide.",
+        "options": { "attachmentsUi": { "attachmentsBinary": [{ "property": "data" }] } }
+      },
+      "id": "4f506172-8394-4a5b-cc6d-de4f50617283",
+      "name": "Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [460, 0]
+    }
+  ],
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [[{ "node": "Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Google Sheets": {
+      "main": [[{ "node": "Create the code", "type": "main", "index": 0 }]]
+    },
+    "Create the code": {
+      "main": [[{ "node": "Get it as a PDF", "type": "main", "index": 0 }]]
+    },
+    "Get it as a PDF": {
+      "main": [[{ "node": "Gmail", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" }
+}

@@ -13,13 +13,7 @@ import { PRICING, withPlanNotes } from './plans'
 /** Where the keyless calls live. Not the credential's base URL: there is no credential. */
 const FREE_RENDER_ORIGIN = 'https://app.qrsalt.com'
 
-/**
- * Put the chosen binary field in the request body.
- *
- * The read endpoint takes the image itself, not a link to one, so the file has
- * to travel with the call. Declarative routing has no way to say "the body is
- * this binary field", hence the hook.
- */
+/** Put the chosen binary field in the request body: the read endpoint takes the image itself. */
 async function sendBinaryImage(
   this: IExecuteSingleFunctions,
   requestOptions: IHttpRequestOptions,
@@ -30,15 +24,9 @@ async function sendBinaryImage(
 }
 
 /**
- * Refuse a delete that nobody actually meant.
- *
- * Two things have to be true before the call leaves n8n, and both are checked
- * here rather than only in the editor: the person building the workflow ticked
- * the box that says it is permanent, and they wrote down which code they are
- * deleting. The second one travels to QRSalt as `?confirm=`, where it is
- * checked against the stored record — so a workflow that guesses, or an agent
- * that filled the field from something it read, is refused at the API too and
- * not just here.
+ * Refuse a delete that nobody actually meant. Two things have to be true before
+ * the call leaves n8n: the permanent-delete box is ticked, and the code is named
+ * in Confirm. The name travels on as `?confirm=` and is checked there too.
  */
 async function confirmDelete(
   this: IExecuteSingleFunctions,
@@ -80,13 +68,8 @@ interface DecodeAnswer {
 }
 
 /**
- * The decoded text as the output item.
- *
- * `data` holds the text, which is where the QR-reading nodes people already
- * have put it, so a workflow switched over to this one keeps working. The rest
- * is what the symbol says about itself and is only ever what the API really
- * returned — a code drawn without a mask reported comes back with `mask: null`
- * rather than a guess.
+ * The decoded text as the output item. `data` holds the text; the rest is what
+ * the symbol says about itself, and is null where the symbology carries none.
  */
 async function decodedQr(
   this: IExecuteSingleFunctions,
@@ -129,10 +112,8 @@ export class QrSalt implements INodeType {
     usableAsTool: true,
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
-    // Almost every operation needs a key. The two free ones under QR Image —
-    // Render (Free) and Read (Free) — call public endpoints, so the credential
-    // is hidden there rather than demanded from somebody who is still deciding
-    // whether to sign up.
+    // Render (Free) and Read (Free) call public endpoints, so the credential is
+    // hidden on those two and required everywhere else.
     credentials: [
       {
         name: 'qrSaltApi',
@@ -164,9 +145,7 @@ export class QrSalt implements INodeType {
         ],
       },
       {
-        // Above the operation picker, so it is read before an operation is
-        // chosen rather than after one has failed. Hidden on the two keyless
-        // operations, which is also where the credential is hidden.
+        // Above the operation picker, so it is read before an operation is chosen.
         displayName: `This operation needs a QRSalt API key on a plan that includes API access. <a href="${PRICING}" target="_blank">Plans and prices</a>. QR Image → Render (Free) and Read (Free) need no account at all, and Render works with a key made on the Free plan.`,
         name: 'planNotice',
         type: 'notice',
@@ -267,8 +246,6 @@ export class QrSalt implements INodeType {
         },
       },
       {
-        // Shown before the two confirmations, so what is about to happen is
-        // read before the boxes that agree to it.
         displayName: `Deleting is permanent and the record cannot be restored. A <b>dynamic</b> code stops working straight away: the scan comes through QRSalt, so it reaches a not-found page, and its short link is never given to anyone else — pause it instead if you only want it to stop for now. A <b>static</b> code carries its destination inside the printed pattern and never reaches QRSalt, so deleting one removes the saved record, name and design and nothing more; every copy already printed keeps working and there is no way to stop it. This needs an API key with the Delete permission, which is never ticked for a new key. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
         name: 'deleteNotice',
         type: 'notice',
@@ -635,8 +612,8 @@ export class QrSalt implements INodeType {
                 baseURL: FREE_RENDER_ORIGIN,
                 url: '/api/qr/decode',
                 headers: { Accept: 'application/json', 'Content-Type': 'application/octet-stream' },
-                // The body is the image, put there by the hook below, so n8n
-                // must neither serialise it nor parse the answer for us.
+                // The body is the image, so n8n must neither serialise it nor
+                // parse the answer.
                 json: false,
               },
               send: { preSend: [sendBinaryImage, sendFairnessId] },
@@ -650,8 +627,8 @@ export class QrSalt implements INodeType {
             routing: {
               request: {
                 method: 'GET',
-                // The one call in this package that carries no credential, so it
-                // names its own origin instead of reading the one on the key.
+                // No credential here, so the origin is named rather than read
+                // off the key.
                 baseURL: FREE_RENDER_ORIGIN,
                 url: '/api/qr/free',
                 headers: { Accept: '*/*' },
@@ -969,7 +946,7 @@ export class QrSalt implements INodeType {
         default: 'data',
         hint: 'The name of the input binary field holding the image to read',
         description:
-          'The picture is posted to QRSalt and read there. PNG, JPEG and WebP, up to 4 MB. Nothing is stored: the text comes back and the image is gone.',
+          'The picture is posted to QRSalt and read there. PNG, JPEG and WebP. Nothing is stored: the text comes back and the image is gone.',
         displayOptions: { show: { resource: ['image'], operation: ['readFree'] } },
       },
       {
@@ -978,7 +955,7 @@ export class QrSalt implements INodeType {
         type: 'options',
         default: 'qr',
         description:
-          'Which symbology to look for. QR alone is the fast case; every extra one is another search over the same pixels and costs more of the free allowance.',
+          'Which symbology to look for. QR alone is the fastest; each extra one is another pass over the same image.',
         displayOptions: { show: { resource: ['image'], operation: ['readFree'] } },
         options: [
           { name: 'Aztec', value: 'aztec' },
@@ -1017,8 +994,7 @@ export class QrSalt implements INodeType {
         ],
       },
       {
-        // The links route reads `url`, not `destination` — the one field the two
-        // resources spell differently. Sending the wrong one is a 422.
+        // The links route reads `url`, not `destination`.
         displayName: 'URL',
         name: 'url',
         type: 'string',
@@ -1099,8 +1075,8 @@ export class QrSalt implements INodeType {
         ],
       },
 
-      // The same three fields as the scans range above, duplicated because a
-      // parameter carries only one `displayOptions` and names must be distinct.
+      // The same three fields as the code's scan range below, under their own
+      // names: a parameter carries only one `displayOptions`.
       {
         displayName: 'From',
         name: 'from',
@@ -1312,8 +1288,6 @@ export class QrSalt implements INodeType {
       },
 
       {
-        // The bulk "Apply UTM Preset" action wants a preset ID, and until this
-        // was here there was no way to find one without leaving n8n.
         displayName: 'Operation',
         name: 'operation',
         type: 'options',
@@ -1334,7 +1308,6 @@ export class QrSalt implements INodeType {
         displayName: 'Limit',
         name: 'limit',
         type: 'number',
-        // 100 is the API's ceiling; asking for more silently returns 100.
         typeOptions: { minValue: 1, maxValue: 100 },
         default: 50,
         description: 'Max number of results to return',

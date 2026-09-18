@@ -35,8 +35,35 @@ jobs:
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 22
+          cache: npm
           registry-url: https://registry.npmjs.org
-      # Trusted Publishing needs npm 11.5.1 or newer; Node 22 ships an older one.
-      - run: npm install -g npm@11
+
+      # Trusted Publishing needs npm 11.5.1 or newer; Node 22 still ships npm 10.
+      - run: npm install -g npm@^11.5.1
+      - run: npm --version
+
+      # A tag that does not match the version in package.json would publish the
+      # wrong number, or republish one npm already has and fail halfway.
+      - name: The tag and package.json must agree
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(node -p "require('./package.json').version")"
+          if [ "$tagged" != "$declared" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tagged, package.json says $declared." >&2
+            exit 1
+          fi
+
       - run: npm ci
+
+      # prepack runs the build, so dist is rebuilt from this checkout and the
+      # tarball cannot ship empty.
+      #
+      # NODE_AUTH_TOKEN covers the first publish only: a trusted publisher
+      # cannot be configured for a package that does not exist yet. Once it is
+      # configured the secret is deleted, the variable resolves to nothing, and
+      # npm authenticates over OIDC instead — it detects an OIDC environment
+      # before falling back to a token. Provenance comes from this job having
+      # id-token: write, not from the kind of credential used.
       - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

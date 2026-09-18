@@ -1,0 +1,55 @@
+{
+  "name": "QRSalt — send a finished campaign somewhere else",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "days", "triggerAtHour": 7 }] }
+      },
+      "id": "60718293-a4b5-46c7-8d9e-0f1a2b3c4d5e",
+      "name": "Every morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-320, 0]
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "getAll",
+        "limit": 100,
+        "filters": { "tag": "spring-campaign", "status": "ACTIVE" }
+      },
+      "id": "718293a4-b5c6-47d8-9e0f-1a2b3c4d5e6f",
+      "name": "The campaign's codes",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [-100, 0]
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "update",
+        "codeId": "={{ $json.id }}",
+        "updateFields": {
+          "destination": "https://example.com/whats-on-now",
+          "note": "spring campaign ended"
+        }
+      },
+      "id": "8293a4b5-c6d7-48e9-af10-2b3c4d5e6f70",
+      "name": "Point it somewhere else",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [120, 0],
+      "notes": "Every printed copy follows from the next scan. Nothing is reprinted."
+    }
+  ],
+  "connections": {
+    "Every morning": {
+      "main": [[{ "node": "The campaign's codes", "type": "main", "index": 0 }]]
+    },
+    "The campaign's codes": {
+      "main": [[{ "node": "Point it somewhere else", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" }
+}

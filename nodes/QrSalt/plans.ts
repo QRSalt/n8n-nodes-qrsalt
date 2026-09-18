@@ -8,17 +8,8 @@ import type {
 import { NodeApiError } from 'n8n-workflow'
 
 /**
- * What each operation costs the person running it, said where they choose it.
- *
- * Three answers, and only three. QRSalt's keyless endpoints need no account at
- * all; `GET /api/qr` needs a key but not a paid plan, because every key carries
- * the `render` scope and the Free plan mints one; everything under `/api/v1`
- * needs the `read`, `write` or `delete` scope, and those are sold — the API
- * refuses them on any plan without `apiAccess`.
- *
- * The three sentences live here rather than being retyped twenty times, so the
- * node, the README and the tests cannot end up disagreeing about which
- * operations are which.
+ * What each operation needs, said where the operation is chosen. Three answers:
+ * no account, any API key, or an API key on a plan with API access.
  */
 
 export const PRICING = 'https://qrsalt.com/pricing'
@@ -26,19 +17,13 @@ export const PRICING = 'https://qrsalt.com/pricing'
 /** Keyless: QR Image → Render (Free) and Read (Free). */
 export const NO_ACCOUNT = 'No account needed: this calls a public endpoint.'
 
-/** Needs a key, not a paid plan. Every key can render, including a Free one. */
+/** Needs a key, not a paid plan. Any key can render, including a Free one. */
 export const FREE_KEY = 'Needs an API key. A key made on the Free plan can do this one.'
 
 /** Needs a key on a plan that includes API access. */
 export const PAID_PLAN = `Needs an API key on a plan with API access: ${PRICING}`
 
-/**
- * Needs the Delete permission as well, which is never ticked for a new key.
- *
- * Said here rather than only in the operation's own fields, because the
- * dropdown is where somebody picks it and the dropdown is the last moment the
- * choice is still free.
- */
+/** Needs the Delete permission as well, which is never ticked for a new key. */
 export const DELETE_PERMISSION =
   'Permanent, and there is no undo. Deleting a dynamic code stops the printed one working; deleting a static ' +
   'code only removes the saved record, because printed static codes never reach QRSalt. ' +
@@ -49,10 +34,8 @@ interface Refusal {
 }
 
 /**
- * The API's error envelope, whatever shape it arrived in.
- *
- * The image operations ask for raw bytes (`json: false`), so a refusal on one
- * of those turns up as a Buffer of JSON rather than an object.
+ * The API's error envelope, whatever shape it arrived in. The image operations
+ * ask for raw bytes, so a refusal there turns up as a Buffer of JSON.
  */
 function refusalIn(body: unknown): Refusal | null {
   try {
@@ -66,12 +49,8 @@ function refusalIn(body: unknown): Refusal | null {
 }
 
 /**
- * Turn a refusal into the sentence that says what to do about it.
- *
- * The keyed operations ignore HTTP status errors so this hook sees the answer
- * instead of n8n throwing first. That is the only way to keep QRSalt's own
- * message — which names the plan and what the key *can* still do — and add the
- * link to it. Anything that is not a refusal passes straight through.
+ * Turn a refusal into the sentence that says what to do about it, keeping the
+ * API's own message. Anything that is not a refusal passes straight through.
  */
 export async function explainRefusal(
   this: IExecuteSingleFunctions,
@@ -102,10 +81,10 @@ export async function explainRefusal(
 /** The two keyless operations. Everything else carries the credential. */
 const KEYLESS = new Set(['renderFree', 'readFree'])
 
-/** Keyed, but sold to nobody: `render` is the one scope every key holds. */
+/** Keyed, but on every plan: any API key can render. */
 const FREE_KEYED = new Set(['render'])
 
-/** Operations behind the `delete` scope, which is sold and also opted into. */
+/** Operations that need the Delete permission on the key. */
 const DELETES = new Set(['delete'])
 
 type Operation = INodePropertyOptions & {
@@ -115,14 +94,7 @@ type Operation = INodePropertyOptions & {
   }
 }
 
-/**
- * Give every operation its requirement note and its refusal handling.
- *
- * Walked rather than written out beside each operation, because the one thing
- * that must not happen is a new operation arriving without a note — an
- * unlabelled option reads as "free like the one above it", and the person finds
- * out otherwise from a 402 in a live workflow.
- */
+/** Give every operation its requirement note and its refusal handling. */
 export function withPlanNotes(description: INodeTypeDescription): INodeTypeDescription {
   for (const property of description.properties) {
     if (property.name !== 'operation') continue
@@ -139,8 +111,8 @@ export function withPlanNotes(description: INodeTypeDescription): INodeTypeDescr
 
       const routing = option.routing
       if (!routing?.request) continue
-      // Without this n8n throws on the status code before the hook below ever
-      // sees QRSalt's own sentence.
+      // Without this n8n throws on the status code before the hook above ever
+      // sees the API's own sentence.
       routing.request.ignoreHttpStatusErrors = true
       routing.output ??= {}
       routing.output.postReceive = [explainRefusal, ...(routing.output.postReceive ?? [])]

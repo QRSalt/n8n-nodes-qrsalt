@@ -563,15 +563,14 @@ test('the npm listing leads with the words people search for', () => {
   for (const keyword of ['qr', 'qr code', 'qr-code', 'qrcode']) {
     assert.ok(pkg.keywords.includes(keyword), `the keywords miss "${keyword}"`)
   }
-  // Read (Free) really does read these, each proved by drawing it and reading
-  // it back, so the words are ours to use.
+  // Read (Free) really does read these, so the words are ours to use.
   for (const keyword of ['barcode', 'barcode reader', 'ean13', 'code128', 'pdf417']) {
     assert.ok(pkg.keywords.includes(keyword), `the keywords miss "${keyword}"`)
   }
 })
 
-// Symbologies QRSalt cannot draw and therefore does not support. Courting a
-// search for one of them is a promise the package cannot keep.
+// Symbologies the reader does not read. Courting a search for one of them is a
+// promise the package cannot keep.
 const UNREAD = ['ean8', 'ean-8', 'upce', 'upc-e', 'codabar', 'maxicode', 'databar']
 
 test('nothing claims a symbology the reader cannot read', () => {
@@ -589,9 +588,7 @@ test('nothing claims a symbology the reader cannot read', () => {
   }
 })
 
-// What each operation costs whoever runs it, from the API's own entitlement
-// checks: the keyless endpoints, the `render` scope every key holds, and the
-// read/write/delete scopes, which `needsApiAccess` sells.
+// What each operation needs: no account, any API key, or a plan with API access.
 const PRICING = 'https://qrsalt.com/pricing'
 const KEYLESS = ['renderFree', 'readFree']
 const FREE_KEYED = ['render']
@@ -618,7 +615,7 @@ test('the keyless operations say no account is needed, and the sold ones link pr
       assert.match(note, /No account needed/, `${operation.value} should need no account`)
       assert.ok(!note.includes(PRICING), `${operation.value} is free and should not sell a plan`)
     } else if (FREE_KEYED.includes(operation.value)) {
-      // Every key carries the `render` scope, so this one is not sold either.
+      // Any API key can render, so this one is not sold either.
       assert.match(note, /A key made on the Free plan/)
       assert.ok(!note.includes(PRICING))
     } else {
@@ -704,7 +701,7 @@ test('a refusal on an image operation is read out of the raw bytes', async () =>
 
 test('the credential test tells a valid key on a cheap plan the truth', () => {
   const rules = new QrSaltApi().test.rules ?? []
-  // Free and Starter are the plans without apiAccess; both mint keys that work.
+  // Free and Starter are the plans without API access; both mint keys that work.
   const plans = rules.map((rule) => rule.properties.value)
   assert.deepEqual([...plans].sort(), ['FREE', 'STARTER'])
 

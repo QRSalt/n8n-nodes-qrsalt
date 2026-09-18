@@ -11,10 +11,7 @@ import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workf
 import { PRICING } from './plans'
 import { SIGNATURE_HEADER, verifySignature } from './signature'
 
-/**
- * Delivery is at-least-once and can drop an event: the sending queue swallows its
- * own failures. A workflow must not assume it has seen every scan.
- */
+/** Delivery is at-least-once: a workflow must not assume it has seen every scan. */
 
 interface Me {
   data?: {
@@ -143,8 +140,8 @@ export class QrSaltTrigger implements INodeType {
         const webhookUrl = this.getNodeWebhookUrl('default')
         const events = this.getNodeParameter('events') as string[]
 
-        // Webhooks need a higher plan than API access, so check entitlement first:
-        // otherwise activation fails as a 403 from a POST the user never made.
+        // Check the plan first, so activation reports the real reason rather
+        // than a 403 from a call the user never made.
         let me: Me
         try {
           me = (await this.helpers.httpRequestWithAuthentication.call(this, 'qrSaltApi', {
@@ -183,7 +180,7 @@ export class QrSaltTrigger implements INodeType {
           throw new NodeApiError(this.getNode(), error as never, {
             message: 'QRSalt would not register this workflow’s webhook URL.',
             description:
-              'A workspace can hold ten endpoints, and the URL has to be one QRSalt can reach from the internet — a localhost or private-network n8n is refused.',
+              'The URL has to be one QRSalt can reach from the internet, so a localhost or private-network n8n is refused. Check too that the workspace is not already at its limit of endpoints.',
           })
         }
 
@@ -199,8 +196,8 @@ export class QrSaltTrigger implements INodeType {
           )
         }
 
-        // The API drops unknown event names instead of rejecting them, so compare
-        // against the echoed list — a retired event would look subscribed and never fire.
+        // Compare against the events the API echoed back: an event it no longer
+        // sends would otherwise look subscribed and never fire.
         const subscribed = new Set(endpoint.events ?? [])
         const missing = events.filter((event) => !subscribed.has(event))
         if (missing.length > 0) {
@@ -225,7 +222,8 @@ export class QrSaltTrigger implements INodeType {
         return true
       },
 
-      // Leaving the endpoint registered would make it fail, disable itself and email the account.
+      // Leaving the endpoint registered would leave it failing after the
+      // workflow is switched off.
       async delete(this: IHookFunctions): Promise<boolean> {
         const data = this.getWorkflowStaticData('node')
         const endpointId = data.endpointId as string | undefined

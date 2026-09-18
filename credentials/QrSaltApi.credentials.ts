@@ -51,15 +51,9 @@ export class QrSaltApi implements ICredentialType {
   }
 
   /**
-   * `/me` succeeds for any valid key; listing codes would call an empty
-   * workspace broken. It is also the one endpoint a render-only key can reach,
-   * so a Free-plan key proves itself here rather than being reported as wrong.
-   *
-   * The two rules below turn that into the sentence the person actually needs.
-   * A valid key on a plan without API access passes the request and fails the
-   * rule, which is the only way n8n has of saying "this works, but not for what
-   * you are about to do" — and it is worth saying here rather than in a 402
-   * six steps into a workflow.
+   * `/me` succeeds for any valid key, including a render-only one, so a Free
+   * key proves itself here instead of being reported as wrong. The rules below
+   * say that the key works but the plan does not cover the rest of the node.
    */
   test: ICredentialTestRequest = {
     request: {
