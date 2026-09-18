@@ -433,12 +433,18 @@ failed, so the workflow can branch on it without mistaking it for an answer.
 | `A static code … cannot be repointed.` | Only dynamic codes can be updated. Create a new one |
 | `Too many requests. Slow down…` | Rate limited; the answer carries `retry-after` |
 | `This API key does not have the "delete" scope.` | Deleting, one code or many, needs a key made with the Delete permission |
-| HTTP 422 from Read (Free) | No code of the kind you asked for was found in the image |
-| HTTP 415 from Read (Free) | Not a PNG, JPEG or WebP — judged by the file's bytes, not its name |
+| `No QR code was found in that image.` | Read (Free) found no code of the kind you asked for; it says to add `formats=all` to look for barcodes too |
+| `That file is not a PNG, JPEG or WebP image we can read.` | Read (Free) judges the file by its bytes, not its name |
+| `"color" must be a hex colour, for example 1F2937.` | A render parameter is wrong. The API names the one it is |
+| `"size" must be a number between 64 and 512 without an API key.` | Render (Free) caps the size; the hint says larger exports are on the keyed Render |
 | HTTP 413 from Read (Free) | The image is over 12 MB |
 | `The range was shortened to what your plan retains.` | Not an error: `meta.clamped` on an analytics answer |
 
-Every refusal keeps the API's own sentence and adds what to do about it.
+Every refusal keeps the API's own sentence and adds what to do about it. QRSalt
+answers in two shapes — the managed endpoints nest the refusal, the render and
+read endpoints put the sentence straight in `error` — and both are read, so a
+bad parameter on QR Image says what is wrong with it rather than `HTTP 400`. A
+`hint` arrives with it when the API sends one.
 
 ## Development
 

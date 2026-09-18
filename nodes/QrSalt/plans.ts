@@ -29,29 +29,84 @@ export const DELETE_PERMISSION =
   'code only removes the saved record, because printed static codes never reach QRSalt. ' +
   `Needs an API key with the Delete permission, on a plan with API access: ${PRICING}`
 
+/** One refusal, read out of either envelope and said the same way. */
 interface Refusal {
-  error?: {
-    code?: string
-    message?: string
-    /** 403 only: the scope the key was missing, and the ones it holds. */
-    scope?: string
-    scopes?: string[]
+  /** The API's own sentence. */
+  message?: string
+  code?: string
+  /** 403 only: the scope the key was missing, and the ones it holds. */
+  scope?: string
+  scopes?: string[]
+  /** The flat envelope's follow-up sentence, which usually says how to fix it. */
+  hint?: string
+}
+
+type Body = Record<string, unknown>
+
+/**
+ * The body as an object, whatever it arrived as. The image operations ask for
+ * raw bytes (`json: false`), so a refusal there turns up as a Buffer of JSON,
+ * and anything in front of the API can answer with an HTML page instead.
+ */
+function bodyOf(value: unknown): Body | null {
+  let parsed: unknown = value
+  try {
+    if (Buffer.isBuffer(value)) parsed = JSON.parse(value.toString('utf8'))
+    else if (typeof value === 'string') parsed = JSON.parse(value)
+  } catch {
+    // Not JSON: an HTML error page from something in front of the API.
+    return null
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+  return parsed as Body
+}
+
+const text = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed === '' ? undefined : trimmed
 }
 
 /**
- * The API's error envelope, whatever shape it arrived in. The image operations
- * ask for raw bytes, so a refusal there turns up as a Buffer of JSON.
+ * QRSalt answers a refusal in one of two envelopes, and both have to be read.
+ *
+ * `/api/v1/*` nests it:      {"error":{"code","message","scope","scopes"}}
+ * `/api/qr`, `/api/qr/free`
+ * and `/api/qr/decode` flatten it: {"error":"the sentence","hint":"…"}
+ *
+ * In the flat one the message *is* the value of `error`, so reading only
+ * `error.message` leaves the keyless operations — the ones people try first —
+ * reporting a bare "HTTP 400" instead of QRSalt's own sentence.
  */
-function refusalIn(body: unknown): Refusal | null {
-  try {
-    if (Buffer.isBuffer(body)) return JSON.parse(body.toString('utf8')) as Refusal
-    if (typeof body === 'string') return JSON.parse(body) as Refusal
-    if (body && typeof body === 'object') return body as Refusal
-  } catch {
-    // Not JSON: an HTML error page from something in front of the API.
+function refusalIn(value: unknown): Refusal | null {
+  const body = bodyOf(value)
+  if (!body) return null
+
+  const error = body.error
+  const hint = text(body.hint)
+
+  if (typeof error === 'string') {
+    const message = text(error)
+    return message || hint ? { message, hint } : null
   }
-  return null
+
+  if (error && typeof error === 'object' && !Array.isArray(error)) {
+    const nested = error as Body
+    const scopes = Array.isArray(nested.scopes)
+      ? nested.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : undefined
+    return {
+      message: text(nested.message),
+      code: text(nested.code),
+      scope: text(nested.scope),
+      ...(scopes?.length ? { scopes } : {}),
+      hint: hint ?? text(nested.hint),
+    }
+  }
+
+  // A JSON body with no `error` at all still counts as a refusal at this status,
+  // but it says nothing we can quote.
+  return hint ? { hint } : null
 }
 
 /**
@@ -97,8 +152,8 @@ async function refusalWords(
   status: number,
   refusal: Refusal | null,
 ): Promise<Words> {
-  const said = refusal?.error?.message
-  const code = refusal?.error?.code
+  const said = refusal?.message
+  const code = refusal?.code
 
   if (status === 401 && !KEYLESS.has(operationOf(context))) {
     if (!(await hasApiKey(context))) {
@@ -127,8 +182,8 @@ async function refusalWords(
 
   // 403 is the key's own permissions: the plan is fine, the key was made narrower.
   if (status === 403) {
-    const scope = refusal?.error?.scope
-    const held = refusal?.error?.scopes
+    const scope = refusal?.scope
+    const held = refusal?.scopes
     return {
       message: said ?? 'QRSalt refused this call.',
       description: scope
@@ -164,9 +219,21 @@ export async function explainRefusal(
   if (status < 400) return items
 
   const refusal = refusalIn(response.body)
-  const { message, description } = await refusalWords(this, status, refusal)
+  const words = await refusalWords(this, status, refusal)
+  const { message } = words
 
-  const error = new NodeApiError(this.getNode(), (refusal ?? {}) as never, {
+  // The flat envelope's `hint` usually says how to fix it, so it is kept rather
+  // than dropped — behind whatever the status already had to say, and never
+  // twice if the sentence above already carries it.
+  const hint = refusal?.hint
+  const description =
+    hint && !message.includes(hint) && !words.description?.includes(hint)
+      ? words.description
+        ? `${words.description} ${hint}`
+        : hint
+      : words.description
+
+  const error = new NodeApiError(this.getNode(), (bodyOf(response.body) ?? {}) as never, {
     httpCode: String(status),
     message,
     ...(description ? { description } : {}),

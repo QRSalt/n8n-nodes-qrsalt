@@ -83,6 +83,30 @@ const VALIDATION_BODY = {
   error: { code: 'invalid_input', message: 'destination must be an http or https URL.' },
 }
 
+/**
+ * The second envelope. `/api/qr`, `/api/qr/free` and `/api/qr/decode` do not
+ * nest the refusal: the message *is* the value of `error`. These four bodies
+ * are the ones qrsalt.com really answered with, byte for byte, to a bad colour,
+ * a bad size keyless, a bad size with a key, and a file that is not an image.
+ */
+const FLAT_COLOUR_BODY = {
+  error: '"color" must be a hex colour, for example 1F2937.',
+  docs: '/qr-code-api/docs#render',
+}
+const FLAT_SIZE_KEYLESS_BODY = {
+  error: '"size" must be a number between 64 and 512 without an API key.',
+  hint: 'Larger exports are on /api/qr.',
+  docs: '/qr-code-api/docs#render',
+}
+const FLAT_SIZE_BODY = {
+  error: '"size" must be a number between 64 and 2000.',
+  docs: '/qr-code-api/docs#render',
+}
+const FLAT_IMAGE_BODY = {
+  error: 'That file is not a PNG, JPEG or WebP image we can read.',
+  docs: '/qr-code-api/docs',
+}
+
 test('401 on a node with no credential says to add one, and names where', async () => {
   const error = await refused(context({ key: null }), answer(401, NO_KEY_BODY))
   assert.ok(error instanceof NodeApiError, 'the step failed with something other than a NodeApiError')
@@ -140,10 +164,106 @@ test('422 is reported with the API’s own message and nothing invented', async 
   assert.equal(error.httpCode, '422')
 })
 
+test('a 400 on the free renderer says what is wrong with the colour, not “HTTP 400”', async () => {
+  const error = await refused(context({ operation: 'renderFree' }), answer(400, FLAT_COLOUR_BODY))
+  assert.equal(error.message, '"color" must be a hex colour, for example 1F2937.')
+  assert.doesNotMatch(error.message, /HTTP 400/)
+  assert.ok(!error.description, 'a description was invented for a plain validation error')
+  assert.equal(error.httpCode, '400')
+})
+
+test('a 400 on the keyed renderer says what is wrong with the size', async () => {
+  const error = await refused(context({ operation: 'render' }), answer(400, FLAT_SIZE_BODY))
+  assert.equal(error.message, '"size" must be a number between 64 and 2000.')
+  assert.doesNotMatch(error.message, /HTTP 400/)
+})
+
+test('a 415 from the free reader says the file is not an image it can read', async () => {
+  const error = await refused(context({ operation: 'readFree' }), answer(415, FLAT_IMAGE_BODY))
+  assert.equal(error.message, 'That file is not a PNG, JPEG or WebP image we can read.')
+  assert.doesNotMatch(error.message, /HTTP 415/)
+  assert.equal(error.httpCode, '415')
+})
+
+test('a 422 from the free reader says no code was found, and how to widen the search', async () => {
+  const error = await refused(
+    context({ key: null, operation: 'readFree' }),
+    answer(422, {
+      error: 'No QR code was found in that image. Add ?formats=all to look for barcodes too.',
+      docs: '/qr-code-api/docs',
+    }),
+  )
+  assert.equal(
+    error.message,
+    'No QR code was found in that image. Add ?formats=all to look for barcodes too.',
+  )
+  assert.doesNotMatch(error.message, /HTTP 422/)
+})
+
+test('the hint is carried too, because it says how to fix it', async () => {
+  const error = await refused(
+    context({ key: null, operation: 'renderFree' }),
+    answer(400, FLAT_SIZE_KEYLESS_BODY),
+  )
+  assert.equal(error.message, '"size" must be a number between 64 and 512 without an API key.')
+  assert.equal(error.description, 'Larger exports are on /api/qr.')
+})
+
+test('a flat refusal arriving as a Buffer is read the same way', async () => {
+  // Render (Free) asks for raw bytes, so its refusal comes back as a Buffer.
+  const body = Buffer.from(JSON.stringify(FLAT_COLOUR_BODY), 'utf8')
+  const error = await refused(context({ key: null, operation: 'renderFree' }), answer(400, body))
+  assert.equal(error.message, '"color" must be a hex colour, for example 1F2937.')
+})
+
+test('a flat refusal arriving as a JSON string is read the same way', async () => {
+  const error = await refused(
+    context({ operation: 'readFree' }),
+    answer(415, JSON.stringify(FLAT_IMAGE_BODY)),
+  )
+  assert.equal(error.message, 'That file is not a PNG, JPEG or WebP image we can read.')
+})
+
+test('a flat 401 on a keyed operation still says to add a credential', async () => {
+  // The two envelopes must not change which refusal it is, only where the
+  // sentence is read from.
+  const error = await refused(
+    context({ key: null, operation: 'render' }),
+    answer(401, { error: 'Send your API key as `Authorization: Bearer qr_live_...`.' }),
+  )
+  assert.equal(error.message, 'This operation needs a QRSalt API key, and this node has none.')
+  assert.match(error.description, /Add a QRSalt API credential to this node/)
+})
+
+test('continue on fail carries the flat sentence and its hint', async () => {
+  const out = await explainRefusal.call(
+    context({ key: null, operation: 'renderFree', continueOnFail: true }),
+    ITEMS,
+    answer(400, Buffer.from(JSON.stringify(FLAT_SIZE_KEYLESS_BODY), 'utf8')),
+  )
+  assert.equal(out[0].json.error, '"size" must be a number between 64 and 512 without an API key.')
+  assert.equal(out[0].json.description, 'Larger exports are on /api/qr.')
+  assert.equal(out[0].json.httpCode, 400)
+  assert.ok(out[0].error instanceof NodeApiError)
+})
+
 test('a body that is not JSON is reported as the status', async () => {
   const error = await refused(context(), answer(502, '<html><body>Bad gateway</body></html>'))
   assert.equal(error.message, 'QRSalt refused this call with HTTP 502.')
   assert.ok(!error.description, 'a description was invented for a body that says nothing')
+})
+
+test('a Buffer that is not JSON at all is reported as the status, not as garbage', async () => {
+  const body = Buffer.from('<html><body>504 Gateway Time-out</body></html>', 'utf8')
+  const error = await refused(context({ operation: 'renderFree' }), answer(504, body))
+  assert.equal(error.message, 'QRSalt refused this call with HTTP 504.')
+  assert.ok(!error.description)
+})
+
+test('a Buffer of PNG bytes is not mistaken for a message', async () => {
+  const body = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01])
+  const error = await refused(context({ operation: 'renderFree' }), answer(500, body))
+  assert.equal(error.message, 'QRSalt refused this call with HTTP 500.')
 })
 
 test('a refusal to an image operation arrives as a Buffer and is still read', async () => {
