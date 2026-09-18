@@ -8,10 +8,20 @@ import type {
 } from 'n8n-workflow'
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow'
 
+import { credentialOrigin } from './origin'
 import { PRICING } from './plans'
 import { SIGNATURE_HEADER, verifySignature } from './signature'
 
 /** Delivery is at-least-once: a workflow must not assume it has seen every scan. */
+
+/**
+ * The trigger builds its own calls rather than routing them, so nothing fills
+ * in an origin for it: every URL here is absolute, taken from the credential.
+ */
+async function apiUrl(context: IHookFunctions, path: string): Promise<string> {
+  const credentials = (await context.getCredentials('qrSaltApi')) as { baseUrl?: unknown }
+  return `${credentialOrigin(credentials)}${path}`
+}
 
 interface Me {
   data?: {
@@ -107,7 +117,7 @@ export class QrSaltTrigger implements INodeType {
         try {
           existing = (await this.helpers.httpRequestWithAuthentication.call(this, 'qrSaltApi', {
             method: 'GET',
-            url: '/api/v1/webhooks',
+            url: await apiUrl(this, '/api/v1/webhooks'),
             json: true,
           })) as EndpointList
         } catch (error) {
@@ -146,7 +156,7 @@ export class QrSaltTrigger implements INodeType {
         try {
           me = (await this.helpers.httpRequestWithAuthentication.call(this, 'qrSaltApi', {
             method: 'GET',
-            url: '/api/v1/me',
+            url: await apiUrl(this, '/api/v1/me'),
             json: true,
           })) as Me
         } catch (error) {
@@ -172,7 +182,7 @@ export class QrSaltTrigger implements INodeType {
         try {
           created = (await this.helpers.httpRequestWithAuthentication.call(this, 'qrSaltApi', {
             method: 'POST',
-            url: '/api/v1/webhooks',
+            url: await apiUrl(this, '/api/v1/webhooks'),
             body: { url: webhookUrl, events },
             json: true,
           })) as CreatedEndpoint
@@ -204,7 +214,7 @@ export class QrSaltTrigger implements INodeType {
           await this.helpers.httpRequestWithAuthentication
             .call(this, 'qrSaltApi', {
               method: 'DELETE',
-              url: `/api/v1/webhooks/${endpoint.id}`,
+              url: await apiUrl(this, `/api/v1/webhooks/${endpoint.id}`),
               json: true,
             })
             .catch(() => undefined)
@@ -232,7 +242,7 @@ export class QrSaltTrigger implements INodeType {
         try {
           await this.helpers.httpRequestWithAuthentication.call(this, 'qrSaltApi', {
             method: 'DELETE',
-            url: `/api/v1/webhooks/${endpointId}`,
+            url: await apiUrl(this, `/api/v1/webhooks/${endpointId}`),
             json: true,
           })
         } catch (error) {

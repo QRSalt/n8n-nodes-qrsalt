@@ -8,10 +8,8 @@ import type {
 } from 'n8n-workflow'
 import { NodeConnectionTypes } from 'n8n-workflow'
 import { sendFairnessId } from './fairness'
+import { PUBLIC_ORIGIN } from './origin'
 import { PRICING, withPlanNotes } from './plans'
-
-/** Where the keyless calls live. Not the credential's base URL: there is no credential. */
-const FREE_RENDER_ORIGIN = 'https://app.qrsalt.com'
 
 /** Put the chosen binary field in the request body: the read endpoint takes the image itself. */
 async function sendBinaryImage(
@@ -79,19 +77,27 @@ export class QrSalt implements INodeType {
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
     // Render (Free) and Read (Free) call public endpoints, so the credential is
-    // hidden on those two and required everywhere else. Named by operation
-    // alone: n8n hides as soon as *any* key in `hide` matches, so adding
-    // `resource: ['image']` would take the credential away from Render as well,
-    // and Render is the one image operation that needs a key.
+    // hidden on those two. Named by operation alone: n8n hides as soon as *any*
+    // key in `hide` matches, so adding `resource: ['image']` would take the
+    // credential away from Render as well, and Render is the one image
+    // operation that needs a key.
+    //
+    // Not `required`. n8n refuses to hand a node a credential that its current
+    // parameters hide, and a *required* credential turns that refusal into a
+    // failed run — so the two keyless operations could not run at all. An
+    // operation that does need the key still says so: the call goes out
+    // unauthenticated and the API answers 401, which reads as a key problem.
     credentials: [
       {
         name: 'qrSaltApi',
-        required: true,
+        required: false,
         displayOptions: { hide: { operation: ['renderFree', 'readFree'] } },
       },
     ],
     requestDefaults: {
-      baseURL: '={{$credentials.baseUrl}}',
+      // Without a credential there is no base URL to read, so name the public
+      // one. The keyless operations set their own anyway.
+      baseURL: `={{$credentials?.baseUrl || '${PUBLIC_ORIGIN}'}}`,
       headers: { Accept: 'application/json' },
     },
     properties: [
@@ -566,7 +572,7 @@ export class QrSalt implements INodeType {
             routing: {
               request: {
                 method: 'POST',
-                baseURL: FREE_RENDER_ORIGIN,
+                baseURL: PUBLIC_ORIGIN,
                 url: '/api/qr/decode',
                 headers: { Accept: 'application/json', 'Content-Type': 'application/octet-stream' },
                 // The body is the image, so n8n must neither serialise it nor
@@ -586,7 +592,7 @@ export class QrSalt implements INodeType {
                 method: 'GET',
                 // No credential here, so the origin is named rather than read
                 // off the key.
-                baseURL: FREE_RENDER_ORIGIN,
+                baseURL: PUBLIC_ORIGIN,
                 url: '/api/qr/free',
                 headers: { Accept: '*/*' },
                 encoding: 'arraybuffer',

@@ -178,7 +178,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $('Create QR Code').first().json.data?.shortUrl || 'https://qrsalt.invalid/the-code-was-never-created' }}",
+        "url": "={{ $('Create QR Code').first().json.data?.shortUrl || 'https://the-qr-code-was-never-created.invalid/' }}",
         "options": {
           "redirect": {
             "redirect": {
