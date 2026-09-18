@@ -51,7 +51,10 @@ async function confirmDelete(
     throw new NodeOperationError(
       this.getNode(),
       'Tick “I understand this is permanent” before this node can delete a QR code.',
-      { description: 'Deleting stops the printed code for good, and its short link is never reused.' },
+      {
+        description:
+          'Deleting a dynamic code stops the printed one for good, and its short link is never reused. Deleting a static code removes the saved record only.',
+      },
     )
   }
   if (typed === '') {
@@ -266,7 +269,7 @@ export class QrSalt implements INodeType {
       {
         // Shown before the two confirmations, so what is about to happen is
         // read before the boxes that agree to it.
-        displayName: `Deleting is permanent. The printed code stops working straight away, it cannot be restored, and its short link is never given to anyone else. Pause it instead if you only want it to stop for now. This needs an API key with the Delete permission, which is never ticked for a new key. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
+        displayName: `Deleting is permanent and the record cannot be restored. A <b>dynamic</b> code stops working straight away: the scan comes through QRSalt, so it reaches a not-found page, and its short link is never given to anyone else — pause it instead if you only want it to stop for now. A <b>static</b> code carries its destination inside the printed pattern and never reaches QRSalt, so deleting one removes the saved record, name and design and nothing more; every copy already printed keeps working and there is no way to stop it. This needs an API key with the Delete permission, which is never ticked for a new key. <a href="${PRICING}" target="_blank">Plans and prices</a>.`,
         name: 'deleteNotice',
         type: 'notice',
         default: '',

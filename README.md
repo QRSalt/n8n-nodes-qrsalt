@@ -110,9 +110,15 @@ with the reason it was left alone. There is deliberately no bulk delete here —
 deleting hundreds of live codes is not something a workflow should be able to do
 by mistake; delete them one at a time, or in the dashboard.
 
-**Delete** cannot be undone. The code stops working at once and its short link
+**Delete** cannot be undone, and what it costs depends on the kind. A **dynamic**
+code stops working at once — the scan comes through QRSalt — and its short link
 is never handed to anyone else, so an old poster can never point at a stranger's
-site. It needs a key made with the **Delete** permission, which is never ticked
+site. A **static** code carries its destination inside the printed pattern and
+never reaches QRSalt at all, so deleting one removes the saved record, its name,
+design and history, and nothing else: every copy already printed keeps working
+and no workflow can revoke it. Don't build a clean-up that believes otherwise.
+
+It needs a key made with the **Delete** permission, which is never ticked
 by default, and it asks for two things before it calls anything: the *I
 understand this is permanent* toggle, and the code's own name or short link
 ending in **Confirm**. The confirmation goes to QRSalt as `?confirm=` and is

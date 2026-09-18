@@ -40,7 +40,8 @@ export const PAID_PLAN = `Needs an API key on a plan with API access: ${PRICING}
  * choice is still free.
  */
 export const DELETE_PERMISSION =
-  'Permanent, and there is no undo: the printed code stops working and its short link is never reused. ' +
+  'Permanent, and there is no undo. Deleting a dynamic code stops the printed one working; deleting a static ' +
+  'code only removes the saved record, because printed static codes never reach QRSalt. ' +
   `Needs an API key with the Delete permission, on a plan with API access: ${PRICING}`
 
 interface Refusal {
