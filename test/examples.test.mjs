@@ -171,6 +171,61 @@ test('a step that errors reports the API message, and its dependents are skipped
   assert.match(r.report, /cleanup {15}ok {7}3 of 3 objects removed/)
 })
 
+/**
+ * The shape the QRSalt node leaves behind when it is refused and the step is
+ * set to continue: the sentence in `json.error`, and the error beside it. Every
+ * step in the test workflow is set to continue, so this is the shape the report
+ * actually meets when the credential is missing — and the run that prompted
+ * this test read those steps as passes.
+ */
+const REFUSED = [
+  {
+    json: {
+      error: 'This operation needs a QRSalt API key, and this node has none.',
+      description: 'Add a QRSalt API credential to this node: open the node and, under “Credential to connect with”, pick one or choose Create new.',
+      httpCode: 401,
+    },
+    error: {
+      message: 'This operation needs a QRSalt API key, and this node has none.',
+      httpCode: '401',
+    },
+  },
+]
+
+test('a keyed step refused for want of a credential is a failure, not a pass', () => {
+  const keyless = new Set(['Prepare', 'Render (Free)', 'Read (Free)'])
+  const nodes = {}
+  // The credential node is an HTTP Request node, so it answers with the status.
+  for (const name of Object.keys(happy)) nodes[name] = keyless.has(name) ? happy[name] : REFUSED
+  nodes['Check Credential'] = j({
+    statusCode: 401,
+    body: { error: { code: 'unauthenticated', message: 'Send your API key as `Authorization: Bearer qr_live_...`.' } },
+  })
+
+  const r = runSummary(nodes)
+  assert.equal(r.passed, false)
+  assert.match(r.report, /^RESULT: FAILED/)
+  // Every keyed step says so, and none of them says "ok".
+  for (const line of ['render', 'codeCreate', 'linkCreate', 'analytics', 'folderGetMany'])
+    assert.match(r.report, new RegExp(`${line} +(FAIL|SKIPPED)`))
+  assert.doesNotMatch(r.report, /codeCreate {12}ok/)
+  // The keyless pair still ran, because they need no key.
+  assert.match(r.report, /renderFree {12}ok/)
+  assert.match(r.report, /readFree {14}ok/)
+})
+
+test('a keyed step refused while the credential itself works is named, not skipped', () => {
+  const nodes = { ...happy }
+  nodes['Create QR Code'] = REFUSED
+  for (const dependent of ['Get QR Code', 'Update QR Code', 'Get QR Image', 'Get Scans', 'Change Many', 'Delete QR Code'])
+    nodes[dependent] = EMPTY
+  nodes['Fire a Scan'] = j({ statusCode: 404 })
+
+  const r = runSummary(nodes)
+  assert.equal(r.passed, false)
+  assert.match(r.report, /codeCreate {12}FAIL {5}This operation needs a QRSalt API key/)
+})
+
 test('empty items with no error anywhere are failures, not passes', () => {
   const nodes = { Prepare: happy.Prepare, 'Check Credential': happy['Check Credential'] }
   for (const name of Object.keys(happy)) if (!(name in nodes)) nodes[name] = EMPTY

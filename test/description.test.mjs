@@ -744,56 +744,27 @@ test('the notice sits above the operation picker, where it is read first', () =>
   assert.ok(notice >= 0 && notice < operation, 'the notice comes after the first operation picker')
 })
 
-test('a refusal keeps the API’s own sentence and adds what to do about it', async () => {
-  const [create] = allOperations().filter((operation) => operation.value === 'create')
-  const [explain] = create.routing.output.postReceive
-  assert.equal(typeof explain, 'function', 'nothing turns a refusal into a message')
-  // Without this n8n throws on the status code and the hook never runs.
-  assert.equal(create.routing.request.ignoreHttpStatusErrors, true)
-
-  const node = { getNode: () => ({ name: 'QRSalt', type: 'qrSalt', typeVersion: 1 }) }
-  const refuse = async (statusCode, body) => {
-    try {
-      await explain.call(node, [], { statusCode, body, headers: {} })
-    } catch (error) {
-      return error
-    }
-    return null
+/**
+ * Every operation is wired to read a refusal before anything else. What each
+ * refusal then *says*, and that it fails the step rather than handing the error
+ * text on as an item, is in refusals.test.mjs.
+ */
+test('every operation is wired to turn a refusal into a message', () => {
+  for (const operation of allOperations()) {
+    const routing = operation.routing
+    assert.ok(routing?.request, `${operation.value} has no request to route`)
+    // Without this n8n throws on the status code and the hook never runs.
+    assert.equal(
+      routing.request.ignoreHttpStatusErrors,
+      true,
+      `${operation.value} never lets the hook see QRSalt’s own sentence`,
+    )
+    assert.equal(
+      typeof routing.output?.postReceive?.[0],
+      'function',
+      `${operation.value} does not turn a refusal into a message`,
+    )
   }
-
-  const said = 'Creating and changing things over the API comes with Pro and above.'
-  const plan = await refuse(402, { error: { code: 'plan_required', message: said } })
-  assert.ok(plan, 'a 402 came back as a successful item')
-  assert.match(plan.message, /Pro and above/, 'QRSalt’s own sentence was swallowed')
-  assert.match(plan.description, /plan that includes API access/)
-  assert.ok(plan.description.includes(PRICING), 'the refusal does not say where to fix it')
-
-  // A narrow key on a plan that has the API: same 403 handling, same link.
-  const scope = await refuse(403, { error: { code: 'forbidden', message: 'No "write" scope.' } })
-  assert.match(scope.message, /"write" scope/)
-  assert.ok(scope.description.includes(PRICING))
-
-  // A bad key is not a plan problem, so it is not sold a plan.
-  const key = await refuse(401, { error: { code: 'unauthenticated', message: 'Not valid.' } })
-  assert.match(key.message, /Not valid/)
-  assert.ok(!key.description.includes(PRICING), 'a wrong key was answered with a price list')
-})
-
-test('a refusal on an image operation is read out of the raw bytes', async () => {
-  const [render] = allOperations().filter((operation) => operation.value === 'render')
-  const [explain] = render.routing.output.postReceive
-  const node = { getNode: () => ({ name: 'QRSalt', type: 'qrSalt', typeVersion: 1 }) }
-
-  // `json: false` means a refusal arrives as a Buffer, not an object.
-  const body = Buffer.from(JSON.stringify({ error: { message: 'That API key is not valid.' } }))
-  await assert.rejects(
-    () => explain.call(node, [], { statusCode: 401, body, headers: {} }),
-    /That API key is not valid/,
-  )
-
-  // Anything that succeeded passes straight through to the binary handler.
-  const items = [{ json: { ok: true } }]
-  assert.equal(await explain.call(node, items, { statusCode: 200, body, headers: {} }), items)
 })
 
 test('the credential test tells a valid key on a cheap plan the truth', () => {

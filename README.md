@@ -417,8 +417,15 @@ the endpoint is registered.
 
 ## When something goes wrong
 
+A refused call **fails the step**. It is never handed on as an item carrying the
+error text, which would read as a step that worked. If the step is set to
+continue on error, the sentence arrives in `json.error` and the item is marked
+failed, so the workflow can branch on it without mistaking it for an answer.
+
 | Message | What it means |
 | --- | --- |
+| `This operation needs a QRSalt API key, and this node has none.` | No credential is picked on the node. Only QR Image → Render (Free) and Read (Free) run without one |
+| `QRSalt refused this API key.` | A credential is picked, but the key is wrong or revoked — or the credential's Base URL is not the instance the key was made on |
 | `That API key is not valid.` | Wrong, revoked, or its workspace is gone |
 | `… over the API comes with Pro and above.` | The key is fine; the plan does not include API access |
 | `This API key does not have the "write" scope.` | The plan is fine; the key was made narrower. Make a wider one under Settings → API keys |
