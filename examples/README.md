@@ -1,7 +1,9 @@
 # Example workflows
 
-Import any of these in n8n with **Workflows → Import from file**, then pick your
-own credential on each node.
+**Make the QRSalt API credential first**, then import with **Workflows → Import
+from file**, then open each QRSalt node and check the Credential field is filled
+in — an imported workflow cannot carry your credential, and a node without one
+fails at the first call.
 
 | File | What it does |
 | --- | --- |

@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## QRSalt — scan trigger test\n\n1. Pick your **QRSalt account** credential on the trigger node.\n2. **Switch the workflow on** (top right). That is what registers the webhook with QRSalt — it is not registered by a manual execution.\n3. QRSalt has to be able to reach this n8n from the internet. On a laptop, start n8n with `n8n start --tunnel` (or put it behind a public URL) or the subscription is refused — the node says so in the error.\n4. Now run **zzz-full-test**: it requests the short link it creates, which is a real scan, and QRSalt delivers `scan.recorded` here. Or open any live short link of yours.\n5. Open the latest execution and copy the single `report` field from **Scan Received**.\n\nSwitching the workflow off again deletes the webhook endpoint from your workspace.",
+        "content": "## QRSalt — scan trigger test\n\n1. Make the **QRSalt API** credential first and call it **QRSalt account**, then open the **QRSalt Trigger** node and check the Credential field is filled in. If it is empty, pick it.\n2. **Switch the workflow on** (top right). That is what registers the webhook with QRSalt — a manual execution does not register it.\n3. QRSalt has to be able to reach this n8n from the internet. On a laptop, start n8n with `n8n start --tunnel` (or put it behind a public URL) or the subscription is refused — the node says so in the error.\n4. Now run **zzz-full-test**: it requests the short link it creates, which is a real scan, and QRSalt delivers `scan.recorded` here. Or open any live short link of yours.\n5. Open the latest execution and copy the single `report` field from **Scan Received**. The first line is the verdict: it says PASSED only when a delivery arrived carrying a scan, and names what is missing otherwise.\n\nSwitching the workflow off again deletes the webhook endpoint from your workspace.",
         "height": 380,
         "width": 560,
         "color": 4
@@ -33,34 +33,24 @@
       ],
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "report",
-              "name": "report",
-              "value": "=QRSalt trigger — delivery received {{ $now.toISO() }}\nsignature: verified (the node answers 401 and does not start the workflow when it fails)\nevent: {{ $json.event ?? $json.type ?? \"(no event field)\" }}\ntop-level keys: {{ Object.keys($json).join(\", \") }}\npayload: {{ JSON.stringify($json).slice(0, 1200) }}",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": false,
-        "options": {}
+        "jsCode": "// One item, one string field \"report\", for the scan trigger.\n//\n// Same rule as the full test: this may only say PASSED when a delivery actually\n// arrived with something in it. An empty body, or a body for an event nobody\n// asked for, is a failure and says so.\n\n// Run Once for All Items, so the delivery is read off the input rather than $json.\nlet body = {};\ntry {\n  const first = $input.first();\n  body = (first && first.json) || {};\n} catch (e) {\n  body = {};\n}\nconst keys = Object.keys(body);\nconst event = body.event ?? body.type ?? null;\nconst wanted = 'scan.recorded';\nconst failures = [];\nconst lines = [];\n\nconst oneLine = (s, n) => String(s).replace(/\\s+/g, ' ').trim().slice(0, n || 160);\nconst v = (x) => (x === undefined || x === null || x === '' ? 'MISSING' : String(x));\n\nif (keys.length === 0) {\n  failures.push('the delivery arrived with an empty body — nothing was sent, or it was not JSON');\n} else if (!event) {\n  failures.push('no \"event\" (or \"type\") field in the delivery, so there is no way to tell what happened');\n} else if (event !== wanted) {\n  failures.push('the delivery is for \"' + oneLine(event, 60) + '\", not \"' + wanted + '\"');\n}\n\n// The scan itself. These are the fields a scan delivery is supposed to carry;\n// a missing one is reported by name rather than hidden behind a \"?\".\nconst scan = body.data ?? body.scan ?? {};\nconst codeId = scan.codeId ?? scan.code_id ?? scan.id ?? null;\nconst when = scan.scannedAt ?? scan.createdAt ?? body.createdAt ?? null;\nif (keys.length && !codeId) {\n  failures.push('the delivery names no QR code (no data.codeId), so it cannot be traced back to a code');\n}\n\nlines.push('event:            ' + v(event));\nlines.push('QR code:          ' + v(codeId));\nlines.push('when:             ' + v(when));\nlines.push('top-level keys:   ' + (keys.length ? keys.join(', ') : 'NONE — the body was empty'));\nlines.push('signature:        checked by the node before this workflow started; it answers 401 and does not start the workflow when the check fails');\n\nlet payload = '';\ntry {\n  payload = JSON.stringify(body).slice(0, 1200);\n} catch (e) {\n  payload = '(could not be printed: ' + oneLine(e.message, 80) + ')';\n  failures.push('the delivery could not be serialised: ' + oneLine(e.message, 80));\n}\n\nconst report = [\n  failures.length\n    ? 'RESULT: FAILED — ' + failures.length + ' problem' + (failures.length === 1 ? '' : 's') + ' with this delivery'\n    : 'RESULT: PASSED — a signed ' + wanted + ' delivery arrived with a scan in it',\n  'QRSalt trigger — delivery received ' + new Date().toISOString(),\n  ''.padEnd(72, '-'),\n  ...lines,\n  ''.padEnd(72, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'PAYLOAD:',\n  '  ' + payload,\n].join('\\n');\n\nreturn [{ json: { report, passed: failures.length === 0 } }];"
       },
       "id": "scan-received",
       "name": "Scan Received",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         120,
         -60
-      ]
+      ],
+      "alwaysOutputData": true
     }
   ],
   "connections": {

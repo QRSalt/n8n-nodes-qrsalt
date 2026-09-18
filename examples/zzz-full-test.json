@@ -3,8 +3,8 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## QRSalt — full node test\n\n**Before you press Execute**\n1. Make a credential of type *QRSalt API* and call it exactly **QRSalt account**, so every node below binds to it on import. If you called it something else, pick it on the first QRSalt node and n8n will offer to use it everywhere.\n2. The key needs the **delete** scope and a plan with API access; the delete steps fail otherwise and the summary says so.\n3. To test the scan trigger as well, import **zzz-trigger-test.json** and switch it on first — this run fires a real scan on the link it makes.\n\n**What it does**: every operation of the node, in an order that works — create, use, then delete. Everything it makes is named `zzz-test-<timestamp>-…`.\n\n**Afterwards**: open the **Summary** node and copy the single `report` field. The run cleans up after itself: every object it made is deleted again.",
-        "height": 460,
+        "content": "## QRSalt — full node test\n\n**Do this first, or the run cannot tell you anything**\n1. Make a credential of type *QRSalt API* and call it exactly **QRSalt account**. Do it before importing this file, so the nodes bind to it on import.\n2. After importing, open the **Check Credential** node and look at the Credential field. If it is empty, pick your credential there, then open **Create QR Code** and pick it as well — n8n applies a credential per node, so check the rest are filled in before you run.\n3. The key needs a plan with API access and the **delete** scope. A Free or Starter key passes the credential check and then fails everything else, and the report says which.\n4. To test the scan trigger too, import **zzz-trigger-test.json** and switch it on first — this run fires a real scan on the link it makes.\n\n**What it does**: every operation of the node, in an order that works — check the key, create, use, then delete. Everything it makes is named `zzz-test-<timestamp>-…`.\n\n**Afterwards**: open the **Summary** node and copy the single `report` field. The first line is the verdict. A step only says `ok` when the data it should have produced is actually there; a step that errored says `FAIL` with the reason, and a step whose input never existed says `SKIPPED` — never `ok`.\n\n**If the credential line says FAIL**, nothing below it was tested. Fix that first.\n\nSelf-hosting QRSalt? Change the URL in **Check Credential** to your own origin.",
+        "height": 560,
         "width": 620,
         "color": 4
       },
@@ -113,7 +113,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -142,7 +142,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -171,14 +171,14 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
     },
     {
       "parameters": {
-        "url": "={{ $('Create QR Code').first().json.data?.shortUrl || 'https://example.com/no-code' }}",
+        "url": "={{ $('Create QR Code').first().json.data?.shortUrl || 'https://qrsalt.invalid/the-code-was-never-created' }}",
         "options": {
           "redirect": {
             "redirect": {
@@ -222,7 +222,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -250,7 +250,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -278,7 +278,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -304,7 +304,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -330,7 +330,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -358,7 +358,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -384,7 +384,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -409,7 +409,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -434,7 +434,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -457,7 +457,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -479,7 +479,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -501,7 +501,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -523,7 +523,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -545,7 +545,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -570,7 +570,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -592,7 +592,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -615,7 +615,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -641,7 +641,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -664,7 +664,7 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
@@ -687,14 +687,14 @@
       "onError": "continueRegularOutput",
       "credentials": {
         "qrSaltApi": {
-          "id": "qrsalt-account",
+          "id": null,
           "name": "QRSalt account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Builds one item with one string field, \"report\", to copy in a single click.\nconst pad = (s) => (s + '                          ').slice(0, 22);\nconst lines = [];\nconst failures = [];\nconst notes = [];\n\nconst grab = (n) => { try { const a = $(n).all(); return a.length ? (a[0].json || {}) : {}; } catch (e) { return { __missing: e.message }; } };\nconst bin = (n) => { try { const a = $(n).all(); return a.length ? (a[0].binary || {}) : {}; } catch (e) { return {}; } };\n\nfunction errOf(j) {\n  if (!j) return 'no output';\n  if (j.__missing) return 'node did not run (' + j.__missing + ')';\n  const e = j.error;\n  if (!e) return null;\n  if (typeof e === 'string') return e;\n  if (typeof e === 'object') return e.message || e.description || JSON.stringify(e).slice(0, 200);\n  return String(e);\n}\n\nfunction fileInfo(b) {\n  const f = b && b.data;\n  if (!f) return 'NO BINARY FIELD \"data\"';\n  let bytes = null;\n  try { if (f.data) bytes = Buffer.from(f.data, 'base64').length; } catch (e) {}\n  return (f.mimeType || '?') + ' ' + (bytes != null ? bytes + ' B' : (f.fileSize || 'size unknown'));\n}\n\nconst n = (x) => (x === undefined || x === null ? '?' : x);\nconst count = (j) => (Array.isArray(j.data) ? j.data.length : (j.meta && j.meta.total != null ? j.meta.total : '?'));\n\nfunction row(label, node, describe) {\n  const j = grab(node);\n  const e = errOf(j);\n  if (e) {\n    failures.push(label + ' — ' + String(e).replace(/\\s+/g, ' ').slice(0, 300));\n    lines.push(pad(label) + 'FAIL  ' + String(e).replace(/\\s+/g, ' ').slice(0, 180));\n    return;\n  }\n  let note = '';\n  try { note = describe ? String(describe(j, bin(node)) ?? '') : ''; }\n  catch (err) { note = '(could not summarise: ' + err.message + ')'; }\n  lines.push(pad(label) + 'ok    ' + note);\n}\n\nrow('render', 'Render', (j, b) => fileInfo(b));\nrow('renderFree', 'Render (Free)', (j, b) => fileInfo(b));\nrow('readFree', 'Read (Free)', (j) => {\n  const keys = ['success', 'data', 'format', 'version', 'errorCorrection', 'mask'];\n  const missing = keys.filter((k) => !(k in j));\n  return 'text=\"' + String(j.data || '').slice(0, 40) + '\" format=' + n(j.format) +\n    (missing.length ? '  SHAPE MISMATCH, missing: ' + missing.join(',') : '');\n});\nrow('codeCreate', 'Create QR Code', (j) => 'id=' + n(j.data && j.data.id) + ' slug=' + n(j.data && j.data.slug) + ' link=' + n(j.data && j.data.shortUrl));\nrow('codeCreateB', 'Create QR Code B', (j) => 'id=' + n(j.data && j.data.id));\nrow('scanFired', 'Fire a Scan', (j) => 'HTTP ' + n(j.statusCode) + ' on the short link (a real scan)');\nrow('codeGet', 'Get QR Code', (j) => 'name=' + n(j.data && j.data.name) + ' status=' + n(j.data && j.data.status));\nrow('codeUpdate', 'Update QR Code', (j) => 'destination=' + String((j.data && j.data.destination) || '?').slice(0, 50));\nrow('codeGetImage', 'Get QR Image', (j, b) => fileInfo(b));\nrow('codeGetScans', 'Get Scans', (j) => (j.data && j.data.summary ? j.data.summary.scans + ' scans, ' + j.data.summary.uniques + ' unique' : 'NO summary in payload'));\nrow('codeGetMany', 'Get Many QR Codes', (j) => count(j) + ' codes from this run');\nrow('codeChangeMany', 'Change Many', (j) => (j.data ? 'action=' + n(j.data.action) + ' done=' + n(j.data.done) + ' unchanged=' + n(j.data.unchanged) + ' skipped=' + n(j.data.skipped) : 'NO data'));\nrow('linkCreate', 'Create Short Link', (j) => 'id=' + n(j.data && j.data.id) + ' link=' + n(j.data && j.data.shortUrl));\nrow('linkGetMany', 'Get Many Short Links', (j) => count(j) + ' links from this run');\nrow('analytics', 'Get Analytics', (j) => (j.data && j.data.summary\n  ? j.data.summary.scans + ' scans / ' + (j.data.series ? j.data.series.length : '?') + ' days' +\n    (j.data.breakdown ? ', breakdown ' + (Array.isArray(j.data.breakdown) ? j.data.breakdown.length + ' rows' : 'present') : ', NO breakdown returned')\n  : 'NO summary'));\nrow('folderCreate', 'Create Folder', (j) => 'id=' + n(j.data && j.data.id) + ' name=' + n(j.data && j.data.name));\nrow('folderGetMany', 'Get Many Folders', (j) => count(j) + ' folders');\nrow('tagGetMany', 'Get Many Tags', (j) => count(j) + ' tags');\nrow('utmGetMany', 'Get Many UTM Presets', (j) => count(j) + ' presets');\nrow('formGetMany', 'Get Many Forms', (j) => count(j) + ' forms');\n\nconst forms = grab('Get Many Forms');\nif (Array.isArray(forms.data) && forms.data.length > 0) {\n  row('formResponses', 'Get Form Responses', (j) => count(j) + ' responses');\n} else {\n  lines.push(pad('formResponses') + 'skip  no QR Form exists in this workspace, so there is nothing to read');\n}\n\nrow('menuGetMany', 'Get Many QR Menus', (j) => count(j) + ' menus');\nrow('codeDelete', 'Delete QR Code', (j) => 'status now ' + n(j.data && j.data.status));\nrow('codeBulkDelete', 'Bulk Delete QR Code B', (j) => (j.data ? 'done=' + n(j.data.done) : 'NO data'));\nrow('linkDelete', 'Delete Short Link', (j) => 'status now ' + n(j.data && j.data.status));\nrow('folderDelete', 'Delete Folder', (j) => (j.data ? 'deleted, ' + n(j.data.codesUnfiled) + ' codes moved out of it (none deleted)' : 'NO data'));\n\nconst removed = [];\nif (!errOf(grab('Delete QR Code'))) removed.push('QR code A');\nif (!errOf(grab('Bulk Delete QR Code B'))) removed.push('QR code B');\nif (!errOf(grab('Delete Short Link'))) removed.push('short link');\nif (!errOf(grab('Delete Folder'))) removed.push('folder');\nlines.push(pad('cleanup') + (removed.length === 4 ? 'ok    ' : 'FAIL  ') + removed.length + ' of 4 deletable objects removed: ' + (removed.join(', ') || 'none'));\n\nnotes.push('Scans are counted when QRSalt serves the redirect, so getScans may still read 0 if counting lags this run.');\n\nconst stamp = (() => { try { return $('Prepare').first().json.stamp; } catch (e) { return 'unknown'; } })();\nconst report = [\n  'QRSalt n8n node test — ' + new Date().toISOString() + ' — run ' + stamp,\n  ''.padEnd(64, '-'),\n  ...lines,\n  ''.padEnd(64, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'NOTES:',\n  ...notes.map((t) => '  - ' + t),\n].join('\\n');\n\nreturn [{ json: { report } }];"
+        "jsCode": "// Builds one item with one string field, \"report\", to copy in a single click.\n//\n// The rule this file exists to keep: a line may only say \"ok\" when the output it\n// describes is actually there. A step that errored, produced no item, or came\n// back without the field the step is supposed to produce, says FAIL. A step\n// whose input never existed says SKIPPED. Nothing else may print \"ok\".\n\nconst W = 22;\nconst pad = (s) => (s + '                          ').slice(0, W);\nconst lines = [];\nconst failures = [];\nconst notes = [];\n\n/** A value out of a nested object by dotted path, or undefined. */\nfunction at(obj, path) {\n  return String(path)\n    .split('.')\n    .reduce((o, k) => (o === undefined || o === null ? undefined : o[k]), obj);\n}\n\nfunction has(obj, path) {\n  const v = at(obj, path);\n  return !(v === undefined || v === null || v === '');\n}\n\n/** MISSING, never \"?\", so a hole in the data reads as a hole. */\nconst v = (x) => (x === undefined || x === null || x === '' ? 'MISSING' : String(x));\n\nconst oneLine = (s, n) => String(s).replace(/\\s+/g, ' ').trim().slice(0, n || 200);\n\n/**\n * n8n does not put a failed step's error in one place. A routing node that\n * continues on error yields { json: {}, error }, a programmatic node yields\n * { json: { error } }, a serialised NodeApiError is an object with message and\n * description, and the API's own refusal can arrive as a body. Look everywhere,\n * and take the first thing that reads like a sentence.\n */\nfunction errorText(item) {\n  const seen = [];\n  const dig = (e, depth) => {\n    if (e === undefined || e === null || depth > 4) return;\n    if (typeof e === 'string') {\n      if (e.trim()) seen.push(e.trim());\n      return;\n    }\n    if (typeof e !== 'object') return;\n    for (const k of ['message', 'description', 'reason', 'error', 'detail', 'errorMessage']) {\n      dig(e[k], depth + 1);\n    }\n    if (e.httpCode) seen.push('HTTP ' + e.httpCode);\n    if (!seen.length) {\n      try {\n        seen.push(JSON.stringify(e).slice(0, 200));\n      } catch (err) {\n        seen.push(String(e));\n      }\n    }\n  };\n  dig(item && item.error, 0);\n  dig(item && item.json && item.json.error, 0);\n  const j = (item && item.json) || {};\n  if (!seen.length && j.success === false) dig(j.message || j.error || j, 0);\n  const uniq = seen.filter((s, i) => seen.indexOf(s) === i);\n  return uniq.length ? oneLine(uniq.join(' — '), 220) : null;\n}\n\n/** What one referenced node actually produced. Never throws. */\nfunction outcome(node) {\n  let items;\n  try {\n    items = $(node).all();\n  } catch (e) {\n    return { ran: false, json: {}, binary: {}, error: 'this step did not run (' + oneLine(e.message, 120) + ')' };\n  }\n  if (!items || !items.length) {\n    return { ran: false, json: {}, binary: {}, error: 'this step produced no item at all' };\n  }\n  const item = items[0] || {};\n  return {\n    ran: true,\n    json: item.json || {},\n    binary: item.binary || {},\n    error: errorText(item),\n  };\n}\n\n/** Cache, so every step is judged once and the cleanup line agrees with the rows. */\nconst seenOutcome = {};\nconst out = (node) => (seenOutcome[node] = seenOutcome[node] || outcome(node));\n\nconst fileInfo = (b) => {\n  const f = b && b.data;\n  if (!f) return null;\n  let bytes = null;\n  try {\n    if (f.data) bytes = Buffer.from(f.data, 'base64').length;\n  } catch (e) {\n    /* binary held outside the item: size unknown, the file is still there */\n  }\n  return (f.mimeType || 'unknown type') + ' ' + (bytes != null ? bytes + ' B' : f.fileSize || 'size unknown');\n};\n\nconst results = {}; // label -> 'ok' | 'FAIL' | 'SKIPPED'\n\n/**\n * One line of the report.\n *   skip     a sentence if this step could not mean anything, else null\n *   need     dotted paths in the JSON that MUST be there for the step to count\n *   binary   a binary field that MUST be there\n *   check    extra test; return a string to fail with it\n *   describe what to print when the step passed\n */\nfunction step(label, node, opts) {\n  const o = opts || {};\n  if (o.skip) {\n    results[label] = 'SKIPPED';\n    lines.push(pad(label) + 'SKIPPED  ' + o.skip);\n    return false;\n  }\n  const r = out(node);\n  const reasons = [];\n  if (r.error) reasons.push(r.error);\n  for (const p of o.need || []) {\n    if (!has(r.json, p)) reasons.push('no ' + p + ' in the output');\n  }\n  if (o.binary && !(r.binary && r.binary[o.binary])) {\n    reasons.push('no binary field \"' + o.binary + '\" — no file came back');\n  }\n  if (!reasons.length && o.check) {\n    let extra = null;\n    try {\n      extra = o.check(r.json, r.binary);\n    } catch (e) {\n      extra = 'could not be checked: ' + oneLine(e.message, 120);\n    }\n    if (extra) reasons.push(extra);\n  }\n  if (reasons.length) {\n    const why = oneLine(reasons.join('; '), 240);\n    results[label] = 'FAIL';\n    failures.push(label + ' — ' + why);\n    lines.push(pad(label) + 'FAIL     ' + why);\n    return false;\n  }\n  let note = '';\n  try {\n    note = o.describe ? String(o.describe(r.json, r.binary) === undefined ? '' : o.describe(r.json, r.binary)) : '';\n  } catch (e) {\n    note = '(passed, but could not be summarised: ' + oneLine(e.message, 120) + ')';\n  }\n  results[label] = 'ok';\n  lines.push(pad(label) + 'ok       ' + note);\n  return true;\n}\n\nconst ok = (label) => results[label] === 'ok';\n\n// ---------------------------------------------------------------- the run\n\nconst prep = out('Prepare');\nconst stamp = prep.json.stamp || 'unknown';\nconst prefix = prep.json.prefix || 'zzz-test';\n\n// 1. The credential, before anything that needs it. One cheap authenticated\n//    call, answered whatever the status, so a 401 arrives as a 401 and not as\n//    an empty item.\nconst cred = out('Check Credential');\nconst credBody = cred.json.body || {};\nconst credStatus = cred.json.statusCode;\nlet credProblem = null;\nif (cred.error && credStatus === undefined) {\n  credProblem = /credential/i.test(cred.error)\n    ? 'credential not set or not found — ' + cred.error\n    : cred.error;\n} else if (credStatus === undefined) {\n  credProblem = 'credential not working — the check produced no response at all';\n} else if (credStatus === 401 || credStatus === 403) {\n  credProblem =\n    'credential not working — HTTP ' +\n    credStatus +\n    ' ' +\n    oneLine(at(credBody, 'error.message') || at(credBody, 'message') || 'the key was refused', 120);\n} else if (credStatus !== 200 || !has(credBody, 'data.workspace')) {\n  credProblem =\n    'credential not working — HTTP ' +\n    v(credStatus) +\n    ' ' +\n    oneLine(at(credBody, 'error.message') || JSON.stringify(credBody).slice(0, 120), 140);\n}\n\n// A second opinion, so a credential that is set on the QRSalt nodes but not on\n// the check node cannot make the whole report read SKIPPED. Get Many Folders is\n// the cheapest authenticated call the node itself makes.\nconst probe = out('Get Many Folders');\nconst probeWorks = !probe.error && Array.isArray(probe.json.data);\n\nif (credProblem && probeWorks) {\n  results.credential = 'FAIL';\n  failures.push(\n    'credential — the QRSalt nodes authenticate fine, but the Check Credential node could not: ' + credProblem,\n  );\n  lines.push(\n    pad('credential') +\n      'FAIL     the QRSalt nodes authenticate, but this check could not (' +\n      credProblem +\n      '). Set the QRSalt API credential on the Check Credential node too.',\n  );\n} else if (credProblem) {\n  results.credential = 'FAIL';\n  failures.push('credential — ' + credProblem);\n  lines.push(pad('credential') + 'FAIL     ' + credProblem);\n} else {\n  results.credential = 'ok';\n  const plan = at(credBody, 'data.workspace.plan');\n  lines.push(\n    pad('credential') +\n      'ok       workspace=' +\n      v(at(credBody, 'data.workspace.name') || at(credBody, 'data.workspace.id')) +\n      ' plan=' +\n      v(plan),\n  );\n  if (plan === 'FREE' || plan === 'STARTER') {\n    notes.push(\n      'This key is on the ' +\n        plan +\n        ' plan, which does not include API access: only QR Image → Render can pass. Every other step below is expected to fail with the plan message, and that is the API refusing, not the node.',\n    );\n  }\n}\n\nconst noCred = credProblem && !probeWorks ? 'credential not working, so this was not tried' : null;\n\n// 2. The two operations that need no account at all. They are tested even when\n//    the credential is broken, because they do not use it.\nstep('renderFree', 'Render (Free)', {\n  binary: 'data',\n  describe: (j, b) => fileInfo(b),\n});\n\nstep('readFree', 'Read (Free)', {\n  need: ['data'],\n  check: (j) => {\n    const keys = ['success', 'data', 'format'];\n    const missing = keys.filter((k) => !(k in j));\n    if (missing.length) return 'the answer is the wrong shape, missing: ' + missing.join(',');\n    if (String(j.data).indexOf(prefix) === -1) {\n      return 'decoded \"' + oneLine(j.data, 60) + '\", which is not the image Render (Free) just made';\n    }\n    return null;\n  },\n  describe: (j) => 'read back \"' + oneLine(j.data, 48) + '\" format=' + v(j.format),\n});\n\n// 3. Everything from here needs the key.\nstep('render', 'Render', { skip: noCred, binary: 'data', describe: (j, b) => fileInfo(b) });\n\nstep('codeCreate', 'Create QR Code', {\n  skip: noCred,\n  need: ['data.id', 'data.shortUrl'],\n  describe: (j) =>\n    'id=' + v(at(j, 'data.id')) + ' slug=' + v(at(j, 'data.slug')) + ' link=' + v(at(j, 'data.shortUrl')),\n});\nconst madeA = ok('codeCreate');\nconst noA = noCred || (madeA ? null : 'QR code A was never created, so this could not be tried');\n\nstep('codeCreateB', 'Create QR Code B', {\n  skip: noCred,\n  need: ['data.id'],\n  describe: (j) => 'id=' + v(at(j, 'data.id')),\n});\nconst madeB = ok('codeCreateB');\n\nstep('scanFired', 'Fire a Scan', {\n  skip: noA,\n  need: ['statusCode'],\n  check: (j) => {\n    const s = Number(j.statusCode);\n    if (s >= 200 && s < 400) return null;\n    return 'HTTP ' + j.statusCode + ' from the short link — it did not redirect, so no scan was recorded';\n  },\n  describe: (j) => 'HTTP ' + j.statusCode + ' from the short link — a real scan',\n});\n\nstep('codeGet', 'Get QR Code', {\n  skip: noA,\n  need: ['data.id'],\n  describe: (j) => 'name=' + v(at(j, 'data.name')) + ' status=' + v(at(j, 'data.status')),\n});\n\nstep('codeUpdate', 'Update QR Code', {\n  skip: noA,\n  need: ['data.destination'],\n  check: (j) =>\n    String(at(j, 'data.destination')).indexOf(prefix + '-a2') === -1\n      ? 'destination came back as \"' + oneLine(at(j, 'data.destination'), 60) + '\", not the one that was set'\n      : null,\n  describe: (j) => 'destination=' + oneLine(at(j, 'data.destination'), 60),\n});\n\nstep('codeGetImage', 'Get QR Image', { skip: noA, binary: 'data', describe: (j, b) => fileInfo(b) });\n\nstep('codeGetScans', 'Get Scans', {\n  skip: noA,\n  need: ['data.summary'],\n  describe: (j) => v(at(j, 'data.summary.scans')) + ' scans, ' + v(at(j, 'data.summary.uniques')) + ' unique',\n});\n\nstep('codeGetMany', 'Get Many QR Codes', {\n  skip: noCred,\n  need: ['data'],\n  check: (j) => (Array.isArray(j.data) ? null : 'data is not a list'),\n  describe: (j) => j.data.length + ' codes matching ' + prefix,\n});\n\nstep('codeChangeMany', 'Change Many', {\n  skip: noA,\n  need: ['data.action'],\n  describe: (j) =>\n    'action=' +\n    v(at(j, 'data.action')) +\n    ' done=' +\n    v(at(j, 'data.done')) +\n    ' unchanged=' +\n    v(at(j, 'data.unchanged')) +\n    ' skipped=' +\n    v(at(j, 'data.skipped')),\n});\n\nstep('linkCreate', 'Create Short Link', {\n  skip: noCred,\n  need: ['data.id'],\n  describe: (j) => 'id=' + v(at(j, 'data.id')) + ' link=' + v(at(j, 'data.shortUrl')),\n});\nconst madeLink = ok('linkCreate');\n\nstep('linkGetMany', 'Get Many Short Links', {\n  skip: noCred,\n  need: ['data'],\n  check: (j) => (Array.isArray(j.data) ? null : 'data is not a list'),\n  describe: (j) => j.data.length + ' links matching ' + prefix,\n});\n\nstep('analytics', 'Get Analytics', {\n  skip: noCred,\n  need: ['data.summary'],\n  describe: (j) =>\n    v(at(j, 'data.summary.scans')) +\n    ' scans / ' +\n    (Array.isArray(at(j, 'data.series')) ? at(j, 'data.series').length + ' days' : 'series MISSING') +\n    ', ' +\n    (Array.isArray(at(j, 'data.breakdown')) ? at(j, 'data.breakdown').length + ' breakdown rows' : 'breakdown MISSING'),\n});\n\nstep('folderCreate', 'Create Folder', {\n  skip: noCred,\n  need: ['data.id'],\n  describe: (j) => 'id=' + v(at(j, 'data.id')) + ' name=' + v(at(j, 'data.name')),\n});\nconst madeFolder = ok('folderCreate');\n\nconst listStep = (label, node) =>\n  step(label, node, {\n    skip: noCred,\n    need: ['data'],\n    check: (j) => (Array.isArray(j.data) ? null : 'data is not a list'),\n    describe: (j) => j.data.length + ' returned',\n  });\n\nlistStep('folderGetMany', 'Get Many Folders');\nlistStep('tagGetMany', 'Get Many Tags');\nlistStep('utmGetMany', 'Get Many UTM Presets');\nlistStep('formGetMany', 'Get Many Forms');\n\nconst forms = out('Get Many Forms');\nif (noCred) {\n  results.formResponses = 'SKIPPED';\n  lines.push(pad('formResponses') + 'SKIPPED  ' + noCred);\n} else if (!Array.isArray(forms.json.data) || forms.json.data.length === 0) {\n  results.formResponses = 'SKIPPED';\n  lines.push(pad('formResponses') + 'SKIPPED  no QR Form exists in this workspace, so there is nothing to read');\n} else {\n  listStep('formResponses', 'Get Form Responses');\n}\n\nlistStep('menuGetMany', 'Get Many QR Menus');\n\n// 4. Cleanup. Every object this run made has to go again, and the line may only\n//    say ok when each one that was made is gone.\nstep('codeDelete', 'Delete QR Code', {\n  skip: madeA ? null : 'QR code A was never created, so there is nothing to delete',\n  need: ['data'],\n  describe: (j) => 'deleted, status now ' + v(at(j, 'data.status')),\n});\n\nstep('codeBulkDelete', 'Bulk Delete QR Code B', {\n  skip: madeB ? null : 'QR code B was never created, so there is nothing to delete',\n  need: ['data.done'],\n  check: (j) => (Number(at(j, 'data.done')) >= 1 ? null : 'the API reported done=' + v(at(j, 'data.done'))),\n  describe: (j) => 'deleted, done=' + v(at(j, 'data.done')),\n});\n\nstep('linkDelete', 'Delete Short Link', {\n  skip: madeLink ? null : 'the short link was never created, so there is nothing to delete',\n  need: ['data'],\n  describe: (j) => 'deleted, status now ' + v(at(j, 'data.status')),\n});\n\nstep('folderDelete', 'Delete Folder', {\n  skip: madeFolder ? null : 'the folder was never created, so there is nothing to delete',\n  need: ['data'],\n  describe: (j) => 'deleted, ' + v(at(j, 'data.codesUnfiled')) + ' codes moved out of it (none deleted)',\n});\n\nif (results.linkDelete === 'FAIL') {\n  notes.push(\n    'The node has no Short Link → Delete operation, so this run deletes the short link through the QR code delete route with the link\\'s ID. If that is refused, delete the link by hand in the dashboard.',\n  );\n}\n\nconst made = [\n  ['QR code A', madeA, 'codeDelete'],\n  ['QR code B', madeB, 'codeBulkDelete'],\n  ['short link', madeLink, 'linkDelete'],\n  ['folder', madeFolder, 'folderDelete'],\n].filter((r) => r[1]);\nconst gone = made.filter((r) => ok(r[2]));\nconst leftBehind = made.filter((r) => !ok(r[2])).map((r) => r[0]);\nif (!made.length) {\n  lines.push(pad('cleanup') + 'ok       nothing was created, so there is nothing to clean up');\n} else if (leftBehind.length) {\n  failures.push('cleanup — still in the workspace: ' + leftBehind.join(', '));\n  lines.push(\n    pad('cleanup') +\n      'FAIL     ' +\n      gone.length +\n      ' of ' +\n      made.length +\n      ' removed. Delete by hand: ' +\n      leftBehind.join(', ') +\n      ' (search for ' +\n      prefix +\n      ')',\n  );\n} else {\n  lines.push(pad('cleanup') + 'ok       ' + gone.length + ' of ' + made.length + ' objects removed');\n}\n\n// 5. The verdict, first, so it cannot be missed.\nnotes.push('Scans are counted when QRSalt serves the redirect, so getScans may still read 0 if counting lags this run.');\nif (noCred) {\n  notes.push(\n    'Fix the credential first: make a QRSalt API credential, open each QRSalt node and pick it, then run again. Nothing below the credential line was tested.',\n  );\n} else if (credProblem) {\n  notes.push(\n    'Only the Check Credential node is missing its credential. The rest of the run is real, but the workspace and plan could not be read.',\n  );\n}\nconst skipped = Object.keys(results).filter((k) => results[k] === 'SKIPPED');\nif (skipped.length && !credProblem) {\n  notes.push('SKIPPED means the step had no input to work on, not that it passed.');\n}\n\nconst verdict = failures.length\n  ? 'RESULT: FAILED — ' + failures.length + ' step' + (failures.length === 1 ? '' : 's') + ' did not work'\n  : 'RESULT: PASSED — every step returned what it should';\n\nconst report = [\n  verdict,\n  'QRSalt n8n node test — ' + new Date().toISOString() + ' — run ' + stamp,\n  ''.padEnd(72, '-'),\n  ...lines,\n  ''.padEnd(72, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'NOTES:',\n  ...notes.map((t) => '  - ' + t),\n].join('\\n');\n\n// \"report\" is the one field to copy; \"passed\" is there so another workflow can\n// branch on it without parsing the text.\nreturn [{ json: { report, passed: failures.length === 0 } }];"
       },
       "id": "summary",
       "name": "Summary",
@@ -705,6 +705,37 @@
         620
       ],
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "https://app.qrsalt.com/api/v1/me",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qrSaltApi",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "check-credential",
+      "name": "Check Credential",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        -420
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": null,
+          "name": "QRSalt account"
+        }
+      }
     }
   ],
   "connections": {
@@ -723,7 +754,7 @@
       "main": [
         [
           {
-            "node": "Render (Free)",
+            "node": "Check Credential",
             "type": "main",
             "index": 0
           }
@@ -1010,6 +1041,17 @@
         [
           {
             "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Credential": {
+      "main": [
+        [
+          {
+            "node": "Render (Free)",
             "type": "main",
             "index": 0
           }
