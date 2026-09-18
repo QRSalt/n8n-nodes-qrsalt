@@ -96,7 +96,7 @@ export class QrSaltTrigger implements INodeType {
           {
             name: 'Code Updated',
             value: 'code.updated',
-            description: 'A code was renamed or re-pointed',
+            description: 'A code was re-pointed, or its link, domain or campaign tags changed',
           },
           {
             name: 'Form Answered',

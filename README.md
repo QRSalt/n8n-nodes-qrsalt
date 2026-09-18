@@ -154,9 +154,11 @@ say one of three things:
 - `FAIL` — with the API's own sentence, or the name of what was missing.
 - `SKIPPED` — the step's input never existed, so it was not tried. Never a pass.
 
-The run starts with one cheap authenticated call, so a key that is missing,
-refused, or on a plan without API access is named on the first line and
-everything under it reads `SKIPPED` instead of pretending to have run.
+The run starts with one cheap authenticated call, so a key that is refused, or
+on a plan without API access, is named on the first line and everything under it
+reads `SKIPPED` instead of pretending to have run. A step the API turns down
+outright is different: that node goes red and the run stops there, so there is no
+report at all and the node's own error is the answer.
 
 ```
 RESULT: PASSED — every step returned what it should
@@ -186,17 +188,22 @@ codeCreate            SKIPPED  credential not working, so this was not tried
 Everything it makes is named `zzz-test-<timestamp>-…`. It creates two QR codes, a
 short link and a folder, uses them, and deletes every one of them again. The key
 needs the **delete** scope, which is never ticked on a new key; without it the
-delete lines fail and the rest still runs.
+run stops at the first delete and leaves those objects behind for you to remove.
 
-A scan trigger cannot fire from a manual execution, so it ships separately as
-[`examples/zzz-trigger-test.json`](examples/zzz-trigger-test.json): import it,
-check the credential on the trigger node, and **switch the workflow on** —
-activating is what registers the endpoint with QRSalt. QRSalt has to reach your
-n8n from the internet, so on a laptop start it with `n8n start --tunnel`. Then run
-`zzz-full-test`: it requests the short link it created, which is a real scan, and
-`scan.recorded` arrives here within seconds. Open **Scan Received** and copy its
-`report`: it says `PASSED` only when a delivery actually arrived carrying a scan,
-and names what was missing when it did not.
+A trigger cannot fire from a manual execution, so it ships separately as
+[`examples/zzz-trigger-test.json`](examples/zzz-trigger-test.json): one trigger
+node subscribed to all five events, a **Delivery Received** node that judges
+whatever arrives, and one branch per event below it, so the execution says at a
+glance which event came in. Import it, check the credential on the trigger node,
+and **switch the workflow on** — activating is what registers the endpoint with
+QRSalt. QRSalt has to reach your n8n from the internet, so on a laptop start it
+with `n8n start --tunnel`, and the workspace needs a plan that includes webhooks.
+Then run `zzz-full-test`: it requests the short link it created, which is a real
+scan, and `scan.recorded` arrives here. [`examples/README.md`](examples/README.md)
+says how to fire the other four. **Delivery Received** carries a one-line
+`result` and a fuller `report`; either says `PASSED` only when a delivery really
+arrived carrying the fields its event is supposed to have, and names what was
+missing when it did not.
 
 ## Reference
 
@@ -407,7 +414,7 @@ the endpoint again, so nothing is left behind failing.
 | --- | --- |
 | Code Scanned | Somebody scanned a code or opened a short link |
 | Code Created | A code or short link was made |
-| Code Updated | A code was renamed or re-pointed |
+| Code Updated | A code was re-pointed, or its link, domain or campaign tags changed — renaming one sends nothing |
 | Code Disabled | A code was paused, deleted or disabled |
 | Form Answered | A QR Form was answered — the answers are in the payload |
 

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+
+const require = createRequire(import.meta.url)
+const { QrSalt } = require('../dist/nodes/QrSalt/QrSalt.node.js')
+const { QrSaltTrigger } = require('../dist/nodes/QrSalt/QrSaltTrigger.node.js')
 
 /**
  * The zzz-test workflows report on themselves, and a report that says "ok" when
@@ -33,9 +38,24 @@ const runSummary = (nodes) => {
   return new Function('$', 'Buffer', codeOf(full, 'Summary'))($, Buffer)[0].json
 }
 
-const runTrigger = (items) => {
+/**
+ * The trigger workflow's judge, run over one delivery. `store` is the workflow
+ * static data n8n hands a Code node; a fresh one per call unless a test wants
+ * to watch the checklist fill up across deliveries.
+ */
+const runTrigger = (items, store = {}) => {
   const $input = { first: () => items[0], all: () => items }
-  return new Function('$input', codeOf(trigger, 'Scan Received'))($input)[0].json
+  const $getWorkflowStaticData = () => store
+  return new Function('$input', '$getWorkflowStaticData', codeOf(trigger, 'Delivery Received'))(
+    $input,
+    $getWorkflowStaticData,
+  )[0].json
+}
+
+/** One branch node of the trigger workflow, run over the judge's output. */
+const runBranch = (name, items) => {
+  const $input = { first: () => items[0], all: () => items }
+  return new Function('$input', codeOf(trigger, name))($input)
 }
 
 const PREFIX = 'zzz-test-20260918T12'
@@ -192,6 +212,34 @@ const REFUSED = [
   },
 ]
 
+/**
+ * The bug this guards: every node in the test workflows once carried
+ * `onError: continueRegularOutput`. n8n then catches the thrown NodeApiError,
+ * marks the node SUCCESSFUL and passes the error text on as data — so a run
+ * with no credential at all showed a canvas of green nodes. A test workflow
+ * that cannot go red is worth nothing, so nothing here may continue on error
+ * except the one step whose failure genuinely means nothing.
+ */
+test('no step in the test workflows swallows an error, bar the optional scan', () => {
+  const MAY_CONTINUE = new Set(['Fire a Scan'])
+  for (const [file, wf] of [
+    ['zzz-full-test.json', full],
+    ['zzz-trigger-test.json', trigger],
+  ]) {
+    for (const node of wf.nodes) {
+      if (MAY_CONTINUE.has(node.name)) continue
+      assert.equal(
+        node.onError,
+        undefined,
+        `${file}: "${node.name}" is set to ${node.onError} — a refusal there would show as a green node`,
+      )
+    }
+  }
+  // And the one exception is an HTTP Request node of n8n's own, never a QRSalt node.
+  for (const node of full.nodes)
+    if (MAY_CONTINUE.has(node.name)) assert.ok(!node.type.startsWith('n8n-nodes-qrsalt.'))
+})
+
 test('a keyed step refused for want of a credential is a failure, not a pass', () => {
   const keyless = new Set(['Prepare', 'Render (Free)', 'Read (Free)'])
   const nodes = {}
@@ -254,26 +302,166 @@ test('a credential set on the QRSalt nodes but not on the check node does not bl
   assert.match(r.report, /codeCreate {12}ok/)
 })
 
-test('the trigger report only passes on a delivery that carries a scan', () => {
-  const good = runTrigger([
-    { json: { event: 'scan.recorded', createdAt: '2026-09-18T10:00:00Z', data: { codeId: 'c_a' } } },
-  ])
-  assert.equal(good.passed, true)
-  assert.match(good.report, /^RESULT: PASSED/)
+/**
+ * One real delivery per event, shaped from the QRSalt webhook contract:
+ * `scan.recorded` names the code as `data.codeId`, the three `code.*` events as
+ * `data.id`, and `form.submitted` carries `formId` and `responseId`. Getting
+ * that wrong is how a trigger test passes a delivery it cannot actually read.
+ */
+const DELIVERIES = {
+  'scan.recorded': {
+    id: 'evt_8f3b2c1d9a7e6f5b',
+    event: 'scan.recorded',
+    createdAt: '2026-09-18T10:00:00.000Z',
+    data: { codeId: 'c0de1d00', slug: 'k3Tq9x', scannedAt: '2026-09-18T10:00:00.000Z', country: 'NO' },
+  },
+  'code.created': {
+    id: 'evt_1111111111111111',
+    event: 'code.created',
+    createdAt: '2026-09-18T10:01:00.000Z',
+    data: {
+      id: 'c0de1d00',
+      slug: 'k3Tq9x',
+      name: 'Poster',
+      kind: 'DYNAMIC',
+      type: 'URL',
+      destination: 'https://example.com/',
+    },
+  },
+  'code.updated': {
+    id: 'evt_2222222222222222',
+    event: 'code.updated',
+    createdAt: '2026-09-18T10:02:00.000Z',
+    data: {
+      id: 'c0de1d00',
+      slug: 'k3Tq9x',
+      previousDestination: 'https://example.com/old',
+      destination: 'https://example.com/new',
+    },
+  },
+  'code.disabled': {
+    id: 'evt_3333333333333333',
+    event: 'code.disabled',
+    createdAt: '2026-09-18T10:03:00.000Z',
+    data: { id: 'c0de1d00', slug: 'k3Tq9x', from: 'ACTIVE', status: 'PAUSED' },
+  },
+  'form.submitted': {
+    id: 'evt_4444444444444444',
+    event: 'form.submitted',
+    createdAt: '2026-09-18T10:04:00.000Z',
+    data: {
+      formId: 'f0f0f0f0',
+      slug: 'Tq8Lm2',
+      title: 'How was your visit?',
+      responseId: 'a11ce000',
+      version: 3,
+      answers: [{ questionId: 'f_k2x9q1ab', question: 'How was the food?', kind: 'rating', answer: 4 }],
+    },
+  },
+}
 
+test('every event the node offers is reported as a pass, naming what it is about', () => {
+  for (const [event, body] of Object.entries(DELIVERIES)) {
+    const r = runTrigger([{ json: body }])
+    assert.equal(r.passed, true, `${event} was not reported as a pass: ${r.result}`)
+    assert.equal(r.event, event)
+    assert.match(r.report, /^RESULT: PASSED/)
+    assert.match(r.result, new RegExp(`^PASSED — signed ${event.replace('.', '\\.')} `))
+    // The code or form it is about, by name, never a blank.
+    assert.match(
+      r.subject,
+      event === 'form.submitted'
+        ? /^form f0f0f0f0 "How was your visit\?", response a11ce000/
+        : /^code c0de1d00 \(\/k3Tq9x\)/,
+    )
+    assert.doesNotMatch(r.report, /MISSING/)
+    assert.match(r.report, /FAILURES: none/)
+    // Whether the signature verified is stated, not left to be inferred.
+    assert.match(r.report, /signature: +verified/)
+  }
+})
+
+test('the checklist fills up as the five events arrive, and says what is left', () => {
+  const store = {}
+  let last
+  for (const body of Object.values(DELIVERIES)) last = runTrigger([{ json: body }], store)
+  assert.deepEqual(store.eventsSeen, Object.keys(DELIVERIES))
+  assert.match(last.report, /events so far: .*all five done/)
+
+  const one = runTrigger([{ json: DELIVERIES['scan.recorded'] }])
+  assert.match(one.report, /still to fire: code\.created, code\.updated, code\.disabled, form\.submitted/)
+})
+
+test('a delivery that names no code or form is a failure, not a pass', () => {
   for (const [items, expected] of [
     [[{ json: {} }], /empty body/],
     [[], /empty body/],
-    [[{ json: { data: { codeId: 'c_a' } } }], /no "event"/],
-    [[{ json: { event: 'code.updated', data: { codeId: 'c_a' } } }], /not "scan.recorded"/],
-    [[{ json: { event: 'scan.recorded', data: {} } }], /names no QR code/],
+    [[{ json: { id: 'evt_1', createdAt: 'x', data: { codeId: 'c_a' } } }], /no "event"/],
+    [
+      [{ json: { id: 'evt_1', createdAt: 'x', event: 'code.archived', data: { id: 'c_a' } } }],
+      /not one of the five events/,
+    ],
+    [
+      [{ json: { id: 'evt_1', createdAt: 'x', event: 'scan.recorded', data: {} } }],
+      /scan\.recorded arrived without data\.codeId/,
+    ],
+    [
+      [{ json: { id: 'evt_1', createdAt: 'x', event: 'code.created', data: { codeId: 'c_a' } } }],
+      /code\.created arrived without data\.id/,
+    ],
+    [
+      [{ json: { id: 'evt_1', createdAt: 'x', event: 'form.submitted', data: { formId: 'f_1' } } }],
+      /form\.submitted arrived without data\.responseId/,
+    ],
+    [[{ json: { event: 'scan.recorded', createdAt: 'x', data: { codeId: 'c_a' } } }], /carries no event id/],
+    [[{ json: { id: 'evt_1', event: 'scan.recorded', data: { codeId: 'c_a' } } }], /carries no createdAt/],
   ]) {
     const r = runTrigger(items)
-    assert.equal(r.passed, false)
+    assert.equal(r.passed, false, `this should not have passed: ${r.result}`)
     assert.match(r.report, /^RESULT: FAILED/)
     assert.match(r.report, expected)
+    assert.match(r.result, /^FAILED — /)
     assert.doesNotMatch(r.report, /\?\s*$/)
   }
+})
+
+/** A failed delivery must not tick its event off the checklist. */
+test('a broken delivery does not count as its event having been seen', () => {
+  const store = {}
+  runTrigger([{ json: { id: 'evt_1', createdAt: 'x', event: 'scan.recorded', data: {} } }], store)
+  assert.deepEqual(store.eventsSeen, [])
+})
+
+test('a test delivery from the dashboard passes but is labelled as a test', () => {
+  const scan = DELIVERIES['scan.recorded']
+  const r = runTrigger([{ json: { ...scan, id: 'evt_test_abc', data: { ...scan.data, test: true } } }])
+  assert.equal(r.passed, true)
+  assert.equal(r.isTest, true)
+  assert.match(r.result, /\(test event\)$/)
+  assert.match(r.report, /a test delivery from Settings/)
+})
+
+/**
+ * The branches are what makes the execution readable: exactly one of them holds
+ * an item, and it is the one named after the event that arrived.
+ */
+test('one branch per event takes its own delivery and no other', () => {
+  const branches = trigger.nodes
+    .filter((n) => n.type === 'n8n-nodes-base.code' && n.name !== 'Delivery Received')
+    .map((n) => n.name)
+  assert.equal(branches.length, Object.keys(DELIVERIES).length + 1, 'there is not one branch per event plus a fallback')
+
+  for (const [event, body] of Object.entries(DELIVERIES)) {
+    const judged = [{ json: runTrigger([{ json: body }]) }]
+    const took = branches.filter((name) => runBranch(name, judged).length === 1)
+    assert.equal(took.length, 1, `${event} was taken by ${took.length} branches: ${took.join(', ')}`)
+    assert.ok(took[0].includes(event), `${event} ended in a branch called "${took[0]}"`)
+  }
+
+  // An event nobody subscribed to lands in the fallback and nowhere else.
+  const stray = [{ json: runTrigger([{ json: { id: 'e', createdAt: 'x', event: 'code.archived', data: {} } }]) }]
+  const caught = branches.filter((name) => runBranch(name, stray).length === 1)
+  assert.deepEqual(caught, ['Something else — not subscribed'])
 })
 
 /** Every name the report reads has to be a node that ran before it. */
@@ -328,7 +516,7 @@ test('every $() reference in the test workflows names a node upstream of the rea
       return seen
     }
     for (const node of wf.nodes) {
-      if (node.name === 'Summary' || node.name === 'Scan Received') continue
+      if (node.name === 'Summary' || node.name === 'Delivery Received') continue
       const above = upstream(node.name)
       for (const m of JSON.stringify(node.parameters || {}).matchAll(/\$\(\s*'([^']+)'\s*\)/g)) {
         assert.ok(names.has(m[1]), `${node.name} reads $('${m[1]}'), which is not a node`)
@@ -364,6 +552,87 @@ test('no workflow ships a credential of its own', () => {
   }
 })
 
+/**
+ * An example is a file someone imports and runs. A node type that does not
+ * exist, a typeVersion the node never had, a parameter under a name the node
+ * does not read, or an event value the API no longer sends all import without
+ * complaint and then do nothing — so every QRSalt node in every example is
+ * checked against the built node description here, not against this file's
+ * idea of it.
+ */
+const DESCRIPTIONS = Object.fromEntries(
+  [new QrSalt().description, new QrSaltTrigger().description].map((d) => [`n8n-nodes-qrsalt.${d.name}`, d]),
+)
+
+const EXAMPLES = [
+  'zzz-full-test.json',
+  'zzz-trigger-test.json',
+  'print-batch-from-spreadsheet.json',
+  'repoint-a-printed-code.json',
+  'slack-on-scan.json',
+]
+
+test('every QRSalt node in every example exists, at a version and with parameters the node has', () => {
+  let checked = 0
+  for (const file of EXAMPLES) {
+    for (const node of read(file).nodes) {
+      if (!node.type.startsWith('n8n-nodes-qrsalt')) continue
+      const description = DESCRIPTIONS[node.type]
+      assert.ok(description, `${file}: ${node.name} is a "${node.type}", which this package does not publish`)
+
+      const versions = Array.isArray(description.version) ? description.version : [description.version]
+      assert.ok(
+        versions.includes(node.typeVersion),
+        `${file}: ${node.name} is typeVersion ${node.typeVersion}; the node has ${versions.join(', ')}`,
+      )
+
+      const names = new Set(description.properties.map((p) => p.name))
+      for (const key of Object.keys(node.parameters ?? {})) {
+        assert.ok(names.has(key), `${file}: ${node.name} sets "${key}", which is not a parameter of ${node.type}`)
+      }
+      checked += 1
+    }
+  }
+  assert.ok(checked > 20, 'no QRSalt nodes were checked, so this test proves nothing')
+})
+
+test('every event value an example subscribes to is one the trigger offers', () => {
+  const offered = new Set(
+    new QrSaltTrigger().description.properties.find((p) => p.name === 'events').options.map((o) => o.value),
+  )
+  let checked = 0
+  for (const file of EXAMPLES) {
+    for (const node of read(file).nodes) {
+      if (node.type !== 'n8n-nodes-qrsalt.qrSaltTrigger') continue
+      const events = node.parameters.events ?? []
+      assert.ok(events.length > 0, `${file}: ${node.name} subscribes to no event at all`)
+      for (const event of events) {
+        assert.ok(offered.has(event), `${file}: ${node.name} subscribes to "${event}", which the node does not offer`)
+      }
+      checked += 1
+    }
+  }
+  assert.ok(checked > 0, 'no trigger node was checked')
+})
+
+/** The point of the file: it has to cover every event, or it proves only one. */
+test('the trigger example subscribes to every event the node supports', () => {
+  const offered = new QrSaltTrigger()
+    .description.properties.find((p) => p.name === 'events')
+    .options.map((o) => o.value)
+  const triggers = trigger.nodes.filter((n) => n.type === 'n8n-nodes-qrsalt.qrSaltTrigger')
+  assert.equal(triggers.length, 1, 'one node subscribes to all five, so there should be exactly one')
+  assert.deepEqual([...triggers[0].parameters.events].sort(), [...offered].sort())
+})
+
+/** The judge has to know the same five events the node subscribes to. */
+test('the trigger example judges exactly the events it subscribes to', () => {
+  const code = codeOf(trigger, 'Delivery Received')
+  const judged = [...code.matchAll(/^ {2}'([a-z]+\.[a-z]+)':/gm)].map((m) => m[1])
+  const subscribed = trigger.nodes.find((n) => n.type === 'n8n-nodes-qrsalt.qrSaltTrigger').parameters.events
+  assert.deepEqual([...judged].sort(), [...subscribed].sort())
+})
+
 /** The run has to start by proving the key, or a broken key looks like a pass. */
 test('the full test checks the credential before anything that needs it', () => {
   const check = full.nodes.find((n) => n.name === 'Check Credential')
@@ -374,7 +643,10 @@ test('the full test checks the credential before anything that needs it', () => 
   // Answered whatever the status, so a 401 arrives as a 401 and not as nothing.
   assert.equal(check.parameters.options.response.response.neverError, true)
   assert.equal(check.parameters.options.response.response.fullResponse, true)
-  assert.equal(check.onError, 'continueRegularOutput')
+  // `neverError` keeps a 401 flowing as data so the report can name it, but the
+  // node still fails hard on anything else — above all on having no credential
+  // at all, which must stop the run rather than hand its input to the next node.
+  assert.equal(check.onError, undefined)
   assert.deepEqual(full.connections.Prepare.main[0], [{ node: 'Check Credential', type: 'main', index: 0 }])
 })
 
@@ -400,7 +672,7 @@ test('the order the Summary believes in is the order the nodes are wired in', ()
 
 /** No step may pass an unset value off as a fact. */
 test('the reports never print a bare question mark for a missing value', () => {
-  for (const code of [codeOf(full, 'Summary'), codeOf(trigger, 'Scan Received')]) {
+  for (const code of [codeOf(full, 'Summary'), codeOf(trigger, 'Delivery Received')]) {
     assert.doesNotMatch(code, /'\?'/, 'a missing value must read MISSING, not ?')
     assert.match(code, /MISSING/)
   }

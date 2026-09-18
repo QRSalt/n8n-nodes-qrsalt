@@ -1,11 +1,11 @@
 {
-  "name": "zzz-test — QRSalt trigger",
+  "name": "zzz-test — QRSalt trigger, every event",
   "nodes": [
     {
       "parameters": {
-        "content": "## QRSalt — scan trigger test\n\n1. Make the **QRSalt API** credential first and call it exactly **QRSalt account**, so this file binds to it on import. Then open the **QRSalt Trigger** node and check the Credential field is filled in; if it is empty, pick yours.\n2. **Switch the workflow on** (top right). That is what registers the webhook with QRSalt — a manual execution does not register it.\n3. QRSalt has to be able to reach this n8n from the internet. On a laptop, start n8n with `n8n start --tunnel` (or put it behind a public URL) or the subscription is refused — the node says so in the error.\n4. Now run **zzz-full-test**: it requests the short link it creates, which is a real scan, and QRSalt delivers `scan.recorded` here. Or open any live short link of yours.\n5. Open the latest execution and copy the single `report` field from **Scan Received**. The first line is the verdict: it says PASSED only when a delivery arrived carrying a scan, and names what is missing otherwise.\n\nSwitching the workflow off again deletes the webhook endpoint from your workspace.",
-        "height": 380,
-        "width": 560,
+        "content": "## QRSalt trigger test — every event\n\n**Three things, or nothing arrives.**\n\n1. **Switch the workflow on** (the toggle, top right). Activating is what registers the webhook with QRSalt; a manual execution registers nothing and receives nothing. Switching it off again deletes the endpoint from your workspace.\n2. **QRSalt has to reach this n8n from the internet.** On a laptop, start n8n with `n8n start --tunnel`, or put it behind a public URL. A localhost or private-network address is refused when the workflow is activated, and the node says so.\n3. **Webhooks need a Business plan.** The node checks first and names your plan if it is not included, rather than letting a subscription fail later.\n\nOne trigger node subscribes to all five events, so there is one endpoint to register and one delivery path to watch. **Delivery Received** judges whatever arrived; below it, the branch named after the event is the only one with an item in it.\n\n**How to fire each one, in your own account**\n\n- `scan.recorded` — open one of your short links in a browser.\n- `code.created` — make a QR code in the dashboard.\n- `code.updated` — change an existing code's **destination**. (Renaming alone does not send it.)\n- `code.disabled` — pause or delete a code.\n- `form.submitted` — answer one of your **published** QR Forms.\n\nDeliveries are queued and sent by a worker, so allow about a minute. Open the newest execution and read the `result` line on **Delivery Received**; `report` has the detail.",
+        "height": 620,
+        "width": 640,
         "color": 4
       },
       "id": "sticky-trigger",
@@ -13,14 +13,18 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -820,
-        -180
+        -960,
+        -340
       ]
     },
     {
       "parameters": {
         "events": [
-          "scan.recorded"
+          "scan.recorded",
+          "code.created",
+          "code.updated",
+          "code.disabled",
+          "form.submitted"
         ]
       },
       "id": "qrsalt-trigger",
@@ -28,23 +32,101 @@
       "type": "n8n-nodes-qrsalt.qrSaltTrigger",
       "typeVersion": 1,
       "position": [
-        -160,
-        -60
+        -240,
+        40
       ]
     },
     {
       "parameters": {
-        "jsCode": "// One item, one string field \"report\", for the scan trigger.\n//\n// Same rule as the full test: this may only say PASSED when a delivery actually\n// arrived with something in it. An empty body, or a body for an event nobody\n// asked for, is a failure and says so.\n\n// Run Once for All Items, so the delivery is read off the input rather than $json.\nlet body = {};\ntry {\n  const first = $input.first();\n  body = (first && first.json) || {};\n} catch (e) {\n  body = {};\n}\nconst keys = Object.keys(body);\nconst event = body.event ?? body.type ?? null;\nconst wanted = 'scan.recorded';\nconst failures = [];\nconst lines = [];\n\nconst oneLine = (s, n) => String(s).replace(/\\s+/g, ' ').trim().slice(0, n || 160);\nconst v = (x) => (x === undefined || x === null || x === '' ? 'MISSING' : String(x));\n\nif (keys.length === 0) {\n  failures.push('the delivery arrived with an empty body — nothing was sent, or it was not JSON');\n} else if (!event) {\n  failures.push('no \"event\" (or \"type\") field in the delivery, so there is no way to tell what happened');\n} else if (event !== wanted) {\n  failures.push('the delivery is for \"' + oneLine(event, 60) + '\", not \"' + wanted + '\"');\n}\n\n// The scan itself. These are the fields a scan delivery is supposed to carry;\n// a missing one is reported by name rather than hidden behind a \"?\".\nconst scan = body.data ?? body.scan ?? {};\nconst codeId = scan.codeId ?? scan.code_id ?? scan.id ?? null;\nconst when = scan.scannedAt ?? scan.createdAt ?? body.createdAt ?? null;\nif (keys.length && !codeId) {\n  failures.push('the delivery names no QR code (no data.codeId), so it cannot be traced back to a code');\n}\n\nlines.push('event:            ' + v(event));\nlines.push('QR code:          ' + v(codeId));\nlines.push('when:             ' + v(when));\nlines.push('top-level keys:   ' + (keys.length ? keys.join(', ') : 'NONE — the body was empty'));\nlines.push('signature:        checked by the node before this workflow started; it answers 401 and does not start the workflow when the check fails');\n\nlet payload = '';\ntry {\n  payload = JSON.stringify(body).slice(0, 1200);\n} catch (e) {\n  payload = '(could not be printed: ' + oneLine(e.message, 80) + ')';\n  failures.push('the delivery could not be serialised: ' + oneLine(e.message, 80));\n}\n\nconst report = [\n  failures.length\n    ? 'RESULT: FAILED — ' + failures.length + ' problem' + (failures.length === 1 ? '' : 's') + ' with this delivery'\n    : 'RESULT: PASSED — a signed ' + wanted + ' delivery arrived with a scan in it',\n  'QRSalt trigger — delivery received ' + new Date().toISOString(),\n  ''.padEnd(72, '-'),\n  ...lines,\n  ''.padEnd(72, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'PAYLOAD:',\n  '  ' + payload,\n].join('\\n');\n\nreturn [{ json: { report, passed: failures.length === 0 } }];"
+        "jsCode": "// One item, one report, for whichever of the five QRSalt events arrived.\n//\n// Same rule as the full test: this may only say PASSED when a delivery really\n// arrived carrying the fields that event is supposed to carry. An empty body,\n// an event nobody subscribed to, or a payload naming no code or form is a\n// failure and says which. A report that says \"ok\" when nothing happened is\n// worse than no report.\n//\n// Run Once for All Items, so the delivery is read off the input.\n\n// What each event carries, from the QRSalt webhook contract:\n//   scan.recorded   data.codeId, slug, scannedAt, country, regionCode, city, device, os, browser, referrerHost\n//   code.created    data.id, slug, name, kind, type, destination\n//   code.updated    data.id, slug, and whatever changed (previousDestination/destination, customUrl, gs1Url, utm, domain)\n//   code.disabled   data.id, slug, from, status\n//   form.submitted  data.formId, slug, title, responseId, version, submittedAt, country, score, answers[]\n// Only the fields every delivery of that event must have are required here.\nconst EVENTS = {\n  'scan.recorded': { says: 'a code or short link was scanned', needs: ['codeId'], about: 'code' },\n  'code.created': { says: 'a code or short link was made', needs: ['id'], about: 'code' },\n  'code.updated': { says: 'a code was re-pointed', needs: ['id'], about: 'code' },\n  'code.disabled': { says: 'a code was paused, deleted or disabled', needs: ['id'], about: 'code' },\n  'form.submitted': { says: 'a QR Form was answered', needs: ['formId', 'responseId'], about: 'form' },\n};\nconst ALL = Object.keys(EVENTS);\n\nlet body = {};\ntry {\n  const first = $input.first();\n  body = (first && first.json) || {};\n} catch (e) {\n  body = {};\n}\n\nconst keys = Object.keys(body);\nconst data = body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : {};\nconst event = body.event ?? null;\nconst known = event && Object.prototype.hasOwnProperty.call(EVENTS, event) ? EVENTS[event] : null;\n\nconst failures = [];\nconst lines = [];\nconst oneLine = (s, n) => String(s).replace(/\\s+/g, ' ').trim().slice(0, n || 160);\nconst v = (x) => (x === undefined || x === null || x === '' ? 'MISSING' : String(x));\nconst set = (x) => x !== undefined && x !== null && x !== '';\n\nif (keys.length === 0) {\n  failures.push('the delivery arrived with an empty body — nothing was sent, or it was not JSON');\n} else if (!set(event)) {\n  failures.push('no \"event\" field in the delivery, so there is no way to tell what happened');\n} else if (!known) {\n  failures.push(\n    'the delivery is for \"' + oneLine(event, 60) + '\", which is not one of the five events this trigger subscribes to',\n  );\n} else {\n  for (const field of known.needs) {\n    if (!set(data[field])) {\n      failures.push(\n        event + ' arrived without data.' + field + ', so it names no ' + known.about + ' and cannot be traced back to one',\n      );\n    }\n  }\n}\n\n// Every delivery carries these two, whatever the event. Without the id a repeat\n// cannot be recognised, and delivery is at-least-once.\nif (keys.length > 0 && !set(body.id)) {\n  failures.push('the delivery carries no event id, so a repeat of it could not be told from a new event');\n}\nif (keys.length > 0 && !set(body.createdAt)) {\n  failures.push('the delivery carries no createdAt, so there is no telling when the event happened');\n}\n\n// What it is about, in the words the dashboard uses.\nlet subject = 'MISSING';\nif (known && known.about === 'form') {\n  const answers = Array.isArray(data.answers) ? data.answers.length : null;\n  subject =\n    'form ' +\n    v(data.formId) +\n    (set(data.title) ? ' \"' + oneLine(data.title, 60) + '\"' : '') +\n    ', response ' +\n    v(data.responseId) +\n    (answers === null ? '' : ' (' + answers + ' answer' + (answers === 1 ? '' : 's') + ')');\n} else if (known) {\n  subject = 'code ' + v(data.codeId ?? data.id) + (set(data.slug) ? ' (/' + data.slug + ')' : '');\n}\n\n// A test delivery from Settings → Webhooks is a real signed delivery with\n// made-up contents, so it passes — but it is labelled, because it proves the\n// plumbing and not that your code fired the event.\nconst isTest = data.test === true || String(body.id ?? '').startsWith('evt_test_');\n\n// Which of the five have been seen since the workflow was switched on. Static\n// data is saved after a production execution, so this is a running checklist.\nlet seen = [];\nlet tracked = false;\ntry {\n  if (typeof $getWorkflowStaticData === 'function') {\n    const store = $getWorkflowStaticData('global') || {};\n    const list = Array.isArray(store.eventsSeen) ? store.eventsSeen.filter((e) => ALL.includes(e)) : [];\n    if (known && failures.length === 0 && !list.includes(event)) list.push(event);\n    store.eventsSeen = list;\n    seen = list;\n    tracked = true;\n  }\n} catch (e) {\n  tracked = false;\n}\nconst left = ALL.filter((e) => !seen.includes(e));\n\nlines.push('event:          ' + v(event) + (known ? '  (' + known.says + ')' : ''));\nlines.push('about:          ' + subject);\nlines.push('event id:       ' + v(body.id) + (isTest ? '  — a test delivery from Settings → Webhooks' : ''));\nlines.push('event time:     ' + v(body.createdAt));\nlines.push(\n  'signature:      verified — the trigger answers 401 and does not start the workflow when the check fails, so this execution existing is the proof',\n);\nlines.push('delivery:       at-least-once — the same event id can arrive twice, so dedupe on it before acting');\nlines.push('data fields:    ' + (Object.keys(data).length ? Object.keys(data).join(', ') : 'NONE — data was empty'));\nlines.push(\n  'events so far:  ' +\n    (!tracked\n      ? 'not tracked in this run'\n      : (seen.length ? seen.join(', ') : 'none yet') + (left.length ? '   still to fire: ' + left.join(', ') : '   — all five done')),\n);\n\nlet payload = '';\ntry {\n  payload = JSON.stringify(body).slice(0, 1200);\n} catch (e) {\n  payload = '(could not be printed: ' + oneLine(e.message, 80) + ')';\n  failures.push('the delivery could not be serialised: ' + oneLine(e.message, 80));\n}\n\nconst passed = failures.length === 0;\nconst result = passed\n  ? 'PASSED — signed ' + event + ' delivery for ' + subject + (isTest ? ' (test event)' : '')\n  : 'FAILED — ' + failures[0];\n\nconst report = [\n  passed\n    ? 'RESULT: PASSED — a signed ' + event + ' delivery arrived, about ' + subject\n    : 'RESULT: FAILED — ' + failures.length + ' problem' + (failures.length === 1 ? '' : 's') + ' with this delivery',\n  'QRSalt trigger — delivery received ' + new Date().toISOString(),\n  ''.padEnd(72, '-'),\n  ...lines,\n  ''.padEnd(72, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'PAYLOAD:',\n  '  ' + payload,\n].join('\\n');\n\nreturn [{ json: { result, passed, event, subject, isTest, report } }];"
       },
-      "id": "scan-received",
-      "name": "Scan Received",
+      "id": "delivery-received",
+      "name": "Delivery Received",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        120,
-        -60
+        0,
+        40
       ],
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// This branch only. Every other branch gets no items at all, so the execution\n// shows at a glance which event arrived.\nconst WANTED = 'scan.recorded';\nreturn $input.all().filter((item) => item.json.event === WANTED);"
+      },
+      "id": "branch-scan-recorded",
+      "name": "Scanned — scan.recorded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This branch only. Every other branch gets no items at all, so the execution\n// shows at a glance which event arrived.\nconst WANTED = 'code.created';\nreturn $input.all().filter((item) => item.json.event === WANTED);"
+      },
+      "id": "branch-code-created",
+      "name": "Created — code.created",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This branch only. Every other branch gets no items at all, so the execution\n// shows at a glance which event arrived.\nconst WANTED = 'code.updated';\nreturn $input.all().filter((item) => item.json.event === WANTED);"
+      },
+      "id": "branch-code-updated",
+      "name": "Re-pointed — code.updated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This branch only. Every other branch gets no items at all, so the execution\n// shows at a glance which event arrived.\nconst WANTED = 'code.disabled';\nreturn $input.all().filter((item) => item.json.event === WANTED);"
+      },
+      "id": "branch-code-disabled",
+      "name": "Disabled — code.disabled",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// This branch only. Every other branch gets no items at all, so the execution\n// shows at a glance which event arrived.\nconst WANTED = 'form.submitted';\nreturn $input.all().filter((item) => item.json.event === WANTED);"
+      },
+      "id": "branch-form-submitted",
+      "name": "Form answered — form.submitted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Anything the trigger delivered that is not one of the five. An item here\n// means QRSalt sent an event this workflow did not ask for, or the node's event\n// list and the API's have drifted apart.\nconst KNOWN = ['scan.recorded', 'code.created', 'code.updated', 'code.disabled', 'form.submitted'];\nreturn $input.all().filter((item) => !KNOWN.includes(item.json.event));"
+      },
+      "id": "branch-unexpected",
+      "name": "Something else — not subscribed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        460
+      ]
     }
   ],
   "connections": {
@@ -52,7 +134,43 @@
       "main": [
         [
           {
-            "node": "Scan Received",
+            "node": "Delivery Received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delivery Received": {
+      "main": [
+        [
+          {
+            "node": "Scanned — scan.recorded",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Created — code.created",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Re-pointed — code.updated",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Disabled — code.disabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Form answered — form.submitted",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Something else — not subscribed",
             "type": "main",
             "index": 0
           }

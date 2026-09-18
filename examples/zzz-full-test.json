@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## QRSalt — full node test\n\n**Do this first, or the run cannot tell you anything**\n1. Make a credential of type *QRSalt API* and call it exactly **QRSalt account**, **before** you import this file. The nodes here name that credential rather than carrying an ID, so n8n binds them to yours on import when the name matches.\n2. Called it something else? Open any QRSalt node, pick your credential, and n8n moves every other node in the workflow off the name it could not find. Then check the **Check Credential** node has one too — if any node shows an empty Credential field, fill it in before you run, or that step cannot say anything.\n3. The key needs a plan with API access and the **delete** scope. A Free or Starter key passes the credential check and then fails everything else, and the report says which.\n4. To test the scan trigger too, import **zzz-trigger-test.json** and switch it on first — this run fires a real scan on the link it makes.\n\n**What it does**: every operation of the node, in an order that works — check the key, create, use, then delete. Everything it makes is named `zzz-test-<timestamp>-…`.\n\n**Afterwards**: open the **Summary** node and copy the single `report` field. The first line is the verdict. A step only says `ok` when the data it should have produced is actually there; a step that errored says `FAIL` with the reason, and a step whose input never existed says `SKIPPED` — never `ok`.\n\n**If the credential line says FAIL**, nothing below it was tested. Fix that first.\n\nSelf-hosting QRSalt? Change the URL in **Check Credential** to your own origin.",
+        "content": "## QRSalt — full node test\n\n**Do this first, or the run cannot tell you anything**\n1. Make a credential of type *QRSalt API* **before** you import this file. It carries no credential of its own, so n8n binds yours to every QRSalt node as the workflow comes in.\n2. Then open **Check Credential** and pick your credential there — it is an HTTP Request node, and n8n never binds those for you. Any other node still showing an empty Credential field has to be filled in by hand, or that step cannot say anything.\n3. The key needs a plan with API access and the **delete** scope. A Free or Starter key passes the credential check and then stops the run at the first step it is not allowed to make.\n4. To test the scan trigger too, import **zzz-trigger-test.json** and switch it on first — this run fires a real scan on the link it makes.\n\n**What it does**: every operation of the node, in an order that works — check the key, create, use, then delete. Everything it makes is named `zzz-test-<timestamp>-…`.\n\n**If a step is refused**, that node turns red, the run stops there, and the node's own error says why. There is no report for a run that stopped — the red node is the answer. A missing key stops the run at the very first QRSalt step.\n\n**If the run finishes**, open the **Summary** node and copy the single `report` field. The first line is the verdict. A step only says `ok` when the data it should have produced is actually there; a step that came back without it says `FAIL`, and a step whose input never existed says `SKIPPED` — never `ok`.\n\nThe one step allowed to carry on is **Fire a Scan** — a plain request to the short link, which may be blocked by a proxy without that meaning anything about the node.\n\nSelf-hosting QRSalt? Change the URL in **Check Credential** to your own origin.",
         "height": 560,
         "width": 620,
         "color": 4
@@ -62,8 +62,7 @@
         360,
         -260
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -80,8 +79,7 @@
         620,
         -260
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -109,8 +107,7 @@
         880,
         -260
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -132,8 +129,7 @@
         1140,
         -260
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -155,8 +151,7 @@
         -160,
         -40
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -200,8 +195,7 @@
         360,
         -40
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -222,8 +216,7 @@
         620,
         -40
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -244,8 +237,7 @@
         880,
         -40
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -264,8 +256,7 @@
         1140,
         -40
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -284,8 +275,7 @@
         -160,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -306,8 +296,7 @@
         100,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -326,8 +315,7 @@
         360,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -345,8 +333,7 @@
         620,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -364,8 +351,7 @@
         880,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -381,8 +367,7 @@
         1140,
         180
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -397,8 +382,7 @@
         -160,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -413,8 +397,7 @@
         100,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -429,8 +412,7 @@
         360,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -445,8 +427,7 @@
         620,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -464,8 +445,7 @@
         880,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -480,8 +460,7 @@
         1140,
         400
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -497,8 +476,7 @@
         -160,
         620
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -517,8 +495,7 @@
         100,
         620
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -534,8 +511,7 @@
         360,
         620
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -551,8 +527,7 @@
         580,
         620
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -590,8 +565,7 @@
         360,
         -420
       ],
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "alwaysOutputData": true
     }
   ],
   "connections": {
