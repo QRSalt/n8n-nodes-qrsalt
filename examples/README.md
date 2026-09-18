@@ -4,8 +4,10 @@
 with **Workflows → Import from file**. The two `zzz-` files name that credential
 rather than carrying an ID, so n8n binds them to yours on import; the others
 leave the field empty for you to pick. Either way, check every QRSalt node has a
-credential before running: n8n skips a node that has none and hands its input to
-the next node as though nothing had happened.
+credential before running. From 0.1.4 a QRSalt node with no credential fails the
+step and says so; the HTTP Request nodes in these files are n8n's own, and one
+of those with no credential is skipped, handing its input to the next node as
+though nothing had happened.
 
 | File | What it does |
 | --- | --- |
