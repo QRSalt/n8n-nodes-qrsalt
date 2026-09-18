@@ -135,25 +135,53 @@ Totals and a daily series for the whole workspace. For one code instead, use
 node against a real workspace and tidies up after itself. Use it to prove a new
 key, a new plan or a new release end to end.
 
-1. Make a credential of type **QRSalt API** and name it exactly `QRSalt account`.
-   Every node in the file then binds to it on import; under any other name, pick
-   it on the first QRSalt node and n8n offers to apply it to the rest.
-2. **Workflows → Import from file**, then press **Execute workflow** once.
-3. Open the last node, **Summary**, and copy its single `report` field.
+1. Make a credential of type **QRSalt API**, named exactly `QRSalt account`,
+   **before you import**. The file names that credential instead of carrying an
+   ID, which is what lets n8n bind the nodes to yours as they come in.
+2. **Workflows → Import from file**.
+3. Check it bound: open the first node, **Check Credential**. If the Credential
+   field is empty — you named yours something else — pick yours there, and n8n
+   moves the other nodes off the name it could not find. Any node still showing
+   an empty Credential field must be filled in by hand before the run means
+   anything.
+4. Press **Execute workflow** once.
+5. Open the last node, **Summary**, and copy its single `report` field.
 
-The report is one line per operation — `ok` with a short fact, or `FAIL` with the
-API's own sentence — and a `FAILURES:` line at the end.
+The first line is the verdict. Every line after it is one step, and it can only
+say one of three things:
+
+- `ok` — with the data it produced. A line says `ok` only when the field that
+  step exists to produce is actually in the answer.
+- `FAIL` — with the API's own sentence, or the name of what was missing.
+- `SKIPPED` — the step's input never existed, so it was not tried. Never a pass.
+
+The run starts with one cheap authenticated call, so a key that is missing,
+refused, or on a plan without API access is named on the first line and
+everything under it reads `SKIPPED` instead of pretending to have run.
 
 ```
+RESULT: PASSED — every step returned what it should
 QRSalt n8n node test — 2026-09-18T04:12:07.881Z — run 20260918041201
-render                ok    image/png 4210 B
-readFree              ok    text="https://example.com/?zzz-test…" format=qr
-codeCreate            ok    id=a4705538-… slug=pKvEYtm link=https://qrsalt.com/pKvEYtm
-codeGetScans          ok    1 scans, 1 unique
-codeChangeMany        ok    action=status done=2 unchanged=0 skipped=0
+------------------------------------------------------------------------
+credential            ok       workspace=Acme plan=PRO
+render                ok       image/png 4210 B
+readFree              ok       read back "https://example.com/?zzz-test-…" format=qr
+codeCreate            ok       id=a4705538-… slug=pKvEYtm link=https://qrsalt.com/pKvEYtm
+codeGetScans          ok       1 scans, 1 unique
+codeChangeMany        ok       action=status done=2 unchanged=0 skipped=0
 …
-cleanup               ok    3 of 3 deletable objects removed: QR code A, QR code B, short link
+cleanup               ok       4 of 4 objects removed
+------------------------------------------------------------------------
 FAILURES: none
+```
+
+A run that cannot work says so instead:
+
+```
+RESULT: FAILED — 1 step did not work
+credential            FAIL     credential not working — HTTP 401 API key is invalid or revoked
+renderFree            ok       image/png 4210 B
+codeCreate            SKIPPED  credential not working, so this was not tried
 ```
 
 Everything it makes is named `zzz-test-<timestamp>-…`. It creates two QR codes, a
@@ -163,11 +191,13 @@ delete lines fail and the rest still runs.
 
 A scan trigger cannot fire from a manual execution, so it ships separately as
 [`examples/zzz-trigger-test.json`](examples/zzz-trigger-test.json): import it,
-pick the credential, and **switch the workflow on** — activating is what
-registers the endpoint with QRSalt. QRSalt has to reach your n8n from the
-internet, so on a laptop start it with `n8n start --tunnel`. Then run
+pick the credential on the trigger node, and **switch the workflow on** —
+activating is what registers the endpoint with QRSalt. QRSalt has to reach your
+n8n from the internet, so on a laptop start it with `n8n start --tunnel`. Then run
 `zzz-full-test`: it requests the short link it created, which is a real scan, and
-`scan.recorded` arrives here within seconds.
+`scan.recorded` arrives here within seconds. Open **Scan Received** and copy its
+`report`: it says `PASSED` only when a delivery actually arrived carrying a scan,
+and names what was missing when it did not.
 
 ## Reference
 
