@@ -946,6 +946,7 @@ export class QrSalt implements INodeType {
             name: 'Get Many',
             value: 'getAll',
             action: 'Get many short links',
+            description: 'Get the short links, newest first. QR codes are not included; use QR Code → Get Many for those.',
             routing: { request: { method: 'GET', url: '/api/v1/links' } },
           },
         ],
@@ -1074,7 +1075,8 @@ export class QrSalt implements INodeType {
           { name: 'None', value: '' },
           { name: 'Operating System', value: 'os' },
           { name: 'Referrer', value: 'referrer' },
-          { name: 'Region', value: 'region' },
+          // The values are subdivision codes (CA, 03), not names.
+          { name: 'Region Code', value: 'region' },
           { name: 'Weekday', value: 'weekday' },
         ],
         routing: { send: { type: 'query', property: 'dimension' } },
@@ -1117,7 +1119,8 @@ export class QrSalt implements INodeType {
           { name: 'None', value: '' },
           { name: 'Operating System', value: 'os' },
           { name: 'Referrer', value: 'referrer' },
-          { name: 'Region', value: 'region' },
+          // The values are subdivision codes (CA, 03), not names.
+          { name: 'Region Code', value: 'region' },
           { name: 'Weekday', value: 'weekday' },
         ],
         routing: { send: { type: 'query', property: 'dimension' } },
@@ -1418,10 +1421,11 @@ export class QrSalt implements INodeType {
             name: 'output',
             type: 'options',
             default: 'link',
-            description: 'Only short links, or only codes made as QR codes',
+            description:
+              'Has A Short Link: every dynamic code, since each one has a short link. Every Code: no filter. For the codes made as short links, use Short Link → Get Many.',
             options: [
-              { name: 'QR Code', value: 'qr' },
-              { name: 'Short Link', value: 'link' },
+              { name: 'Every Code', value: 'qr' },
+              { name: 'Has A Short Link', value: 'link' },
             ],
             routing: { send: { type: 'query', property: 'output' } },
           },

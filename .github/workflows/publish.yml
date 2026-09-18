@@ -16,7 +16,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
-          node-version: 22
+          # n8n itself declares engines.node >= 24, so the node is checked on
+          # the runtime it will actually be loaded into.
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -32,13 +34,19 @@ jobs:
       id-token: write # OIDC for npm Trusted Publishing and provenance
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # registry-url is left off deliberately: it makes setup-node write
+      # `_authToken=${NODE_AUTH_TOKEN}`, which with no token becomes an empty
+      # `_authToken=`. npm reads that as auth already configured, never starts
+      # the OIDC exchange, and fails ENEEDAUTH.
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          registry-url: https://registry.npmjs.org
 
-      # Trusted Publishing needs npm 11.5.1 or newer; Node 22 still ships npm 10.
+      - name: No empty auth token may shadow OIDC
+        run: sed -i '/_authToken/d' "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}" 2>/dev/null || true
+
+      # Trusted publishing needs npm 11.5.1; Node 24 already ships npm 11.
       - run: npm install -g npm@^11.5.1
       - run: npm --version
 
@@ -55,15 +63,24 @@ jobs:
 
       - run: npm ci
 
-      # prepack runs the build, so dist is rebuilt from this checkout and the
-      # tarball cannot ship empty.
-      #
-      # NODE_AUTH_TOKEN covers the first publish only: a trusted publisher
-      # cannot be configured for a package that does not exist yet. Once it is
-      # configured the secret is deleted, the variable resolves to nothing, and
-      # npm authenticates over OIDC instead — it detects an OIDC environment
-      # before falling back to a token. Provenance comes from this job having
-      # id-token: write, not from the kind of credential used.
+      # No NODE_AUTH_TOKEN: the only credential is the OIDC token this job
+      # mints from id-token: write. prepack builds dist from this checkout.
+      # --provenance is automatic under trusted publishing but kept explicit,
+      # so a run that is somehow not using OIDC fails instead of shipping an
+      # unsigned version that n8n verification would reject.
       - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: The published version must carry provenance
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          for attempt in 1 2 3; do
+            att="$(npm view "n8n-nodes-qrsalt@$version" dist.attestations --json 2>/dev/null || true)"
+            if [ -n "$att" ] && [ "$att" != "null" ]; then
+              echo "$att"
+              exit 0
+            fi
+            echo "Attempt $attempt: registry has no attestation yet."
+            sleep 10
+          done
+          echo "No provenance attestation on $version. It was published unsigned." >&2
+          exit 1

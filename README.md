@@ -316,11 +316,17 @@ scans — so manage it afterwards with the QR Code operations, using the `id` fr
 the create answer. Note the one difference in spelling: links take **URL**,
 codes take **Destination**.
 
+**Get Many** lists the short links only: what was made as a link, which comes
+back as `output: "link"`. QR Code → Get Many is the one that lists everything in
+the workspace, and its **Has A Short Link** filter is the wider question — every
+dynamic code, because each of those has a short link too.
+
 ### Analytics
 
 **Get** returns totals and a daily series across every code in the workspace,
-with one optional breakdown: Country, Region, City, Device, OS, Browser,
-Referrer, Hour or Weekday. Country is on every plan; the rest need advanced
+with one optional breakdown: Country, Region Code, City, Device, OS, Browser,
+Referrer, Hour or Weekday. A region comes back as its ISO 3166-2 subdivision
+code (`CA`, `03`), which is what the network reports. Country is on every plan; the rest need advanced
 analytics, and asking for one you do not have is refused by name rather than
 quietly returning less. From and To are `YYYY-MM-DD`, at most 366 days apart,
 defaulting to the last 30 days.
@@ -365,8 +371,9 @@ the endpoint again, so nothing is left behind failing.
 | Code Disabled | A code was paused, deleted or disabled |
 | Form Answered | A QR Form was answered — the answers are in the payload |
 
-A scan arrives with its country, region, city, device, OS, browser and referrer
-host under `data`.
+A scan arrives with its country, `regionCode`, city, device, OS, browser and
+referrer host under `data`. `regionCode` is the ISO 3166-2 subdivision code the
+network reports — `03`, `CA` — not a region name; the country is beside it.
 
 Every delivery carries `x-qr-signature: t=<unix seconds>,v1=<hex hmac-sha256>`
 over `${timestamp}.${body}`. The node verifies it against the raw request bytes
