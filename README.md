@@ -6,7 +6,7 @@ workflow the moment somebody scans one.
 
 Two nodes and a credential ship in the package:
 
-- **QRSalt** — the action node: 21 operations across QR codes, short links,
+- **QRSalt** — the action node: 27 operations across QR codes, short links,
   images, analytics, folders, tags, UTM presets, forms and menus.
 - **QRSalt Trigger** — fires on a scan, a new code, a change, or a form answer.
 - **QRSalt API** — one API key, shared by both.
