@@ -36,6 +36,12 @@ const ROUTES = new Set([
   'GET /api/v1/analytics',
   'GET /api/v1/folders',
   'POST /api/v1/folders',
+  'GET /api/v1/folders/{id}',
+  'PATCH /api/v1/folders/{id}',
+  'DELETE /api/v1/folders/{id}',
+  'GET /api/v1/tags/{id}',
+  'PATCH /api/v1/tags/{id}',
+  'DELETE /api/v1/tags/{id}',
   'GET /api/v1/forms',
   'GET /api/v1/forms/{id}/responses',
   'GET /api/v1/pages',
@@ -175,6 +181,60 @@ test('every image operation asks for bytes and files them where the user said', 
   assert.equal(field.default, 'data', 'n8n nodes agree that the default binary field is "data"')
 })
 
+/**
+ * A live test reported that Get Image "only ever returns SVG". The endpoint
+ * reads `format`, `size` and `mm`, and the node does offer all three — the
+ * report was against the published 0.1.0, which predates them. This pins them
+ * so a later tidy of the display rules cannot take the choice away again: the
+ * fields are shared with Render, and narrowing that `show` to `image` alone
+ * would leave Get Image silently taking the endpoint's default, which is SVG.
+ */
+test('Get Image offers every format the endpoint returns, and the size with it', () => {
+  const node = new QrSalt()
+  const shown = (property) =>
+    property.displayOptions?.show?.resource?.includes('code') &&
+    property.displayOptions?.show?.operation?.includes('getImage')
+
+  const fields = properties(node).filter(shown)
+  const [format] = fields.filter((property) => property.name === 'format')
+  assert.ok(format, 'Get Image offers no format, so it can only return the endpoint default')
+  assert.deepEqual(
+    (format.options ?? []).map((option) => option.value).sort(),
+    ['jpg', 'pdf', 'png', 'svg', 'webp'],
+  )
+  assert.deepEqual(format.routing?.send, { type: 'query', property: 'format' })
+
+  const options = fields
+    .flatMap((property) => property.options ?? [])
+    .map((option) => option.routing?.send?.property)
+    .filter(Boolean)
+  assert.deepEqual([...options].sort(), ['mm', 'size'])
+  for (const name of ['format', 'mm', 'size']) {
+    assert.ok(RENDER_PARAMS.has(name), `${name} is not a parameter the image endpoints read`)
+  }
+})
+
+test('a folder and a tag can be removed, not only made', () => {
+  const operations = named(new QrSalt(), 'operation').flatMap((property) => property.options ?? [])
+  const has = (value) => operations.some((operation) => operation.value === value)
+  for (const value of [
+    'getFolder',
+    'updateFolder',
+    'deleteFolder',
+    'getTag',
+    'updateTag',
+    'deleteTag',
+  ]) {
+    assert.ok(has(value), `${value} is missing: a workflow that files things cannot clear up`)
+  }
+  // The id each one interpolates has to be a parameter the node really offers,
+  // or the URL goes out with an empty segment and hits the collection route.
+  const names = new Set(properties(new QrSalt()).map((property) => property.name))
+  for (const name of ['folderId', 'tagId', 'folderName', 'tagName']) {
+    assert.ok(names.has(name), `${name} is not offered`)
+  }
+})
+
 test('the render sends only parameters the QR endpoint reads', () => {
   const node = new QrSalt()
   // Not the operation picker itself: its options carry routing for the call,
@@ -203,8 +263,10 @@ test('the free render needs no credential and calls its own origin', () => {
   const node = new QrSalt()
   const [credential] = node.description.credentials
   assert.equal(credential.name, 'qrSaltApi')
+  // Named by operation only. n8n hides a parameter as soon as *any* key in
+  // `hide` matches, so `resource: ['image']` would hide the credential on
+  // Render too, and Render is keyed.
   assert.deepEqual(credential.displayOptions?.hide, {
-    resource: ['image'],
     operation: ['renderFree', 'readFree'],
   })
 
@@ -217,6 +279,43 @@ test('the free render needs no credential and calls its own origin', () => {
   assert.equal(free.routing.request.baseURL, 'https://app.qrsalt.com')
   assert.equal(free.routing.request.url, '/api/qr/free')
   assert.match(free.action, /without an account/)
+})
+
+/**
+ * The rule that made this worth pinning: n8n displays a parameter unless *any*
+ * one of the keys in `hide` matches, so a two-key `hide` is an OR, not an AND.
+ * A credential hidden on `resource: ['image']` disappears from Render as well,
+ * and Render is the one image operation that calls the keyed endpoint — it
+ * would go out with no Authorization header and no base URL to send it to.
+ */
+test('the credential is offered on every keyed operation and only hidden on the free two', () => {
+  const { displayParameter } = require('n8n-workflow')
+  const node = new QrSalt()
+  const [credential] = node.description.credentials
+  const [notice] = properties(node).filter((property) => property.name === 'planNotice')
+
+  const pairs = named(node, 'operation').flatMap((property) => {
+    const resources = property.displayOptions?.show?.resource ?? []
+    return resources.flatMap((resource) =>
+      (property.options ?? []).map((option) => ({ resource, operation: option.value })),
+    )
+  })
+  assert.ok(pairs.length > 20, 'the sweep found almost no operations')
+
+  const fake = { name: 'QRSalt', type: 'qrSalt', typeVersion: 1, parameters: {}, position: [0, 0] }
+  for (const parameters of pairs) {
+    const keyless = KEYLESS.includes(parameters.operation)
+    const shown = displayParameter(parameters, credential, { ...fake, parameters }, node.description)
+    assert.equal(
+      shown,
+      !keyless,
+      `${parameters.resource} → ${parameters.operation} ${shown ? 'is offered' : 'is refused'} a credential`,
+    )
+    // The plan notice follows the credential exactly, so the reader is told
+    // about keys wherever a key is asked for.
+    const notices = displayParameter(parameters, notice, { ...fake, parameters }, node.description)
+    assert.equal(notices, !keyless, `the plan notice is wrong on ${parameters.operation}`)
+  }
 })
 
 test('the free render offers only what the free endpoint accepts', () => {
@@ -417,12 +516,24 @@ test('a delete asks for nothing but the code id', () => {
   assert.deepEqual(shown.map((property) => property.name), ['codeId'])
 })
 
-test('nothing in this node deletes more than one code', () => {
+test('nothing in this node deletes more than one thing, and only one deletes a code', () => {
   const operations = named(new QrSalt(), 'operation').flatMap((property) => property.options ?? [])
   const deletes = operations.filter((option) => option.routing?.request?.method === 'DELETE')
-  assert.equal(deletes.length, 1)
-  // One id in the path, so there is no shape of this call that covers a list.
-  assert.match(deletes[0].routing.request.url, /\/api\/v1\/codes\/\{\{\$parameter\["codeId"\]\}\}$/)
+
+  // Exactly one id in the path on every one of them, so there is no shape of
+  // any of these calls that covers a list.
+  const urls = deletes.map((option) => option.routing.request.url)
+  for (const url of urls) {
+    assert.match(url, /^=\/api\/v1\/[a-z]+\/\{\{\$parameter\["[a-zA-Z]+"\]\}\}$/, url)
+  }
+  // A folder and a tag are labels. Removing one leaves every code it held
+  // exactly as it was — the API says so in the answer — so the only call here
+  // that destroys anything is the code one.
+  assert.deepEqual([...urls].sort(), [
+    '=/api/v1/codes/{{$parameter["codeId"]}}',
+    '=/api/v1/folders/{{$parameter["folderId"]}}',
+    '=/api/v1/tags/{{$parameter["tagId"]}}',
+  ])
 })
 
 test('a bulk field that clears something sends null rather than an empty string', () => {
@@ -617,7 +728,6 @@ test('the paid operations are introduced by a notice that points at pricing', ()
   assert.ok(notice.displayName.includes(PRICING))
   // Hidden exactly where the credential is hidden: the two keyless operations.
   assert.deepEqual(notice.displayOptions?.hide, {
-    resource: ['image'],
     operation: ['renderFree', 'readFree'],
   })
 

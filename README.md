@@ -33,8 +33,8 @@ lists, changes or measures a code needs a plan with API access
 | **Analytics** | Get |
 | **QR Form** | Get Many · Get Responses |
 | **QR Menu** | Get Many |
-| **Folder** | Create · Get Many |
-| **Tag** | Get Many |
+| **Folder** | Create · Get · Get Many · Update · Delete |
+| **Tag** | Get · Get Many · Update · Delete |
 | **UTM Preset** | Get Many |
 | **QRSalt Trigger** | Code Scanned · Code Created · Code Updated · Code Disabled · Form Answered |
 
@@ -128,6 +128,46 @@ For to *Every Symbology Below* to accept barcodes on packaging too.
 
 Totals and a daily series for the whole workspace. For one code instead, use
 **QR Code → Get Scans** with the code's ID.
+
+## Try every operation in one run
+
+[`examples/zzz-full-test.json`](examples/zzz-full-test.json) exercises the whole
+node against a real workspace and tidies up after itself. Use it to prove a new
+key, a new plan or a new release end to end.
+
+1. Make a credential of type **QRSalt API** and name it exactly `QRSalt account`.
+   Every node in the file then binds to it on import; under any other name, pick
+   it on the first QRSalt node and n8n offers to apply it to the rest.
+2. **Workflows → Import from file**, then press **Execute workflow** once.
+3. Open the last node, **Summary**, and copy its single `report` field.
+
+The report is one line per operation — `ok` with a short fact, or `FAIL` with the
+API's own sentence — and a `FAILURES:` line at the end.
+
+```
+QRSalt n8n node test — 2026-09-18T04:12:07.881Z — run 20260918041201
+render                ok    image/png 4210 B
+readFree              ok    text="https://example.com/?zzz-test…" format=qr
+codeCreate            ok    id=a4705538-… slug=pKvEYtm link=https://qrsalt.com/pKvEYtm
+codeGetScans          ok    1 scans, 1 unique
+codeChangeMany        ok    action=status done=2 unchanged=0 skipped=0
+…
+cleanup               ok    3 of 3 deletable objects removed: QR code A, QR code B, short link
+FAILURES: none
+```
+
+Everything it makes is named `zzz-test-<timestamp>-…`. It creates two QR codes, a
+short link and a folder, uses them, and deletes every one of them again. The key
+needs the **delete** scope, which is never ticked on a new key; without it the
+delete lines fail and the rest still runs.
+
+A scan trigger cannot fire from a manual execution, so it ships separately as
+[`examples/zzz-trigger-test.json`](examples/zzz-trigger-test.json): import it,
+pick the credential, and **switch the workflow on** — activating is what
+registers the endpoint with QRSalt. QRSalt has to reach your n8n from the
+internet, so on a laptop start it with `n8n start --tunnel`. Then run
+`zzz-full-test`: it requests the short link it created, which is a real scan, and
+`scan.recorded` arrives here within seconds.
 
 ## Reference
 
@@ -293,12 +333,22 @@ defaulting to the last 30 days.
 | QR Form → Get Responses | Answers, newest first, with the questions under `meta.questions`; Limit 1–100 and Offset |
 | QR Menu → Get Many | Each menu with its public URL, whether it is published, and its views |
 | Folder → Create | The new folder |
+| Folder → Get | One folder and how many codes are in it |
 | Folder → Get Many | The folders, with the IDs the code operations ask for |
+| Folder → Update | The folder under its new name |
+| Folder → Delete | `codesUnfiled`: how many codes moved out. They are not deleted |
+| Tag → Get | One tag and how many codes carry it |
 | Tag → Get Many | The tags |
+| Tag → Update | The tag under its new name, on every code carrying it |
+| Tag → Delete | `codesUntagged`: how many codes lost the word. They are not deleted |
 | UTM Preset → Get Many | The presets, with the ID Change Many → Apply UTM Preset needs |
 
 Forms and menus are built in the dashboard; the node reads them. Tags have no
-create of their own — naming one on a code or in a bulk action makes it. For
+create of their own — naming one on a code or in a bulk action makes it.
+
+Deleting a folder or a tag deletes neither the codes nor anything printed. A
+folder's codes move to "no folder"; a tag's codes lose the word. Both need a key
+with the **delete** permission, which is never ticked for a new key. For
 form answers as they arrive, use the trigger's **Form Answered** event.
 
 ## QRSalt Trigger

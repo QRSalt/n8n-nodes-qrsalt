@@ -79,12 +79,15 @@ export class QrSalt implements INodeType {
     inputs: [NodeConnectionTypes.Main],
     outputs: [NodeConnectionTypes.Main],
     // Render (Free) and Read (Free) call public endpoints, so the credential is
-    // hidden on those two and required everywhere else.
+    // hidden on those two and required everywhere else. Named by operation
+    // alone: n8n hides as soon as *any* key in `hide` matches, so adding
+    // `resource: ['image']` would take the credential away from Render as well,
+    // and Render is the one image operation that needs a key.
     credentials: [
       {
         name: 'qrSaltApi',
         required: true,
-        displayOptions: { hide: { resource: ['image'], operation: ['renderFree', 'readFree'] } },
+        displayOptions: { hide: { operation: ['renderFree', 'readFree'] } },
       },
     ],
     requestDefaults: {
@@ -116,7 +119,8 @@ export class QrSalt implements INodeType {
         name: 'planNotice',
         type: 'notice',
         default: '',
-        displayOptions: { hide: { resource: ['image'], operation: ['renderFree', 'readFree'] } },
+        // By operation alone, for the same reason as the credential above.
+        displayOptions: { hide: { operation: ['renderFree', 'readFree'] } },
       },
 
       {
@@ -1205,12 +1209,47 @@ export class QrSalt implements INodeType {
             routing: { request: { method: 'POST', url: '/api/v1/folders' } },
           },
           {
+            name: 'Delete',
+            value: 'deleteFolder',
+            action: 'Delete a folder',
+            routing: {
+              request: { method: 'DELETE', url: '=/api/v1/folders/{{$parameter["folderId"]}}' },
+            },
+          },
+          {
+            name: 'Get',
+            value: 'getFolder',
+            action: 'Get a folder',
+            routing: {
+              request: { method: 'GET', url: '=/api/v1/folders/{{$parameter["folderId"]}}' },
+            },
+          },
+          {
             name: 'Get Many',
             value: 'getAllFolders',
             action: 'Get many folders',
             routing: { request: { method: 'GET', url: '/api/v1/folders' } },
           },
+          {
+            name: 'Update',
+            value: 'updateFolder',
+            action: 'Rename a folder',
+            routing: {
+              request: { method: 'PATCH', url: '=/api/v1/folders/{{$parameter["folderId"]}}' },
+            },
+          },
         ],
+      },
+      {
+        displayName: 'Folder ID',
+        name: 'folderId',
+        type: 'string',
+        required: true,
+        default: '',
+        description: 'The ID QRSalt gave the folder when it was created',
+        displayOptions: {
+          show: { resource: ['folder'], operation: ['getFolder', 'updateFolder', 'deleteFolder'] },
+        },
       },
       {
         displayName: 'Name',
@@ -1219,8 +1258,18 @@ export class QrSalt implements INodeType {
         required: true,
         default: '',
         description: 'What the folder is called',
-        displayOptions: { show: { resource: ['folder'], operation: ['createFolder'] } },
+        displayOptions: {
+          show: { resource: ['folder'], operation: ['createFolder', 'updateFolder'] },
+        },
         routing: { send: { type: 'body', property: 'name' } },
+      },
+      {
+        displayName:
+          'Deleting a folder does <b>not</b> delete the codes in it. They stay exactly as they are and simply end up in no folder, and the answer says how many moved. This needs an API key with the Delete permission, which is never ticked for a new key.',
+        name: 'folderDeleteNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['folder'], operation: ['deleteFolder'] } },
       },
 
       {
@@ -1232,12 +1281,62 @@ export class QrSalt implements INodeType {
         default: 'getAllTags',
         options: [
           {
+            name: 'Delete',
+            value: 'deleteTag',
+            action: 'Delete a tag',
+            routing: {
+              request: { method: 'DELETE', url: '=/api/v1/tags/{{$parameter["tagId"]}}' },
+            },
+          },
+          {
+            name: 'Get',
+            value: 'getTag',
+            action: 'Get a tag',
+            routing: { request: { method: 'GET', url: '=/api/v1/tags/{{$parameter["tagId"]}}' } },
+          },
+          {
             name: 'Get Many',
             value: 'getAllTags',
             action: 'Get many tags',
             routing: { request: { method: 'GET', url: '/api/v1/tags' } },
           },
+          {
+            name: 'Update',
+            value: 'updateTag',
+            action: 'Rename a tag',
+            routing: { request: { method: 'PATCH', url: '=/api/v1/tags/{{$parameter["tagId"]}}' } },
+          },
         ],
+      },
+      {
+        displayName: 'Tag ID',
+        name: 'tagId',
+        type: 'string',
+        required: true,
+        default: '',
+        description: 'The ID from Tag → Get Many. Tags are created by naming them on a code.',
+        displayOptions: {
+          show: { resource: ['tag'], operation: ['getTag', 'updateTag', 'deleteTag'] },
+        },
+      },
+      {
+        displayName: 'Name',
+        name: 'tagName',
+        type: 'string',
+        required: true,
+        default: '',
+        description:
+          'What the tag is called. Every code carrying it shows the new name; a name another tag already has is refused rather than merged.',
+        displayOptions: { show: { resource: ['tag'], operation: ['updateTag'] } },
+        routing: { send: { type: 'body', property: 'name' } },
+      },
+      {
+        displayName:
+          'Deleting a tag does <b>not</b> delete the codes carrying it. They lose the word and nothing else, and the answer says how many they were. This needs an API key with the Delete permission, which is never ticked for a new key.',
+        name: 'tagDeleteNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['tag'], operation: ['deleteTag'] } },
       },
 
       {

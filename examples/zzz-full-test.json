@@ -1,0 +1,1026 @@
+{
+  "name": "zzz-test — QRSalt node, every operation",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## QRSalt — full node test\n\n**Before you press Execute**\n1. Make a credential of type *QRSalt API* and call it exactly **QRSalt account**, so every node below binds to it on import. If you called it something else, pick it on the first QRSalt node and n8n will offer to use it everywhere.\n2. The key needs the **delete** scope and a plan with API access; the delete steps fail otherwise and the summary says so.\n3. To test the scan trigger as well, import **zzz-trigger-test.json** and switch it on first — this run fires a real scan on the link it makes.\n\n**What it does**: every operation of the node, in an order that works — create, use, then delete. Everything it makes is named `zzz-test-<timestamp>-…`.\n\n**Afterwards**: open the **Summary** node and copy the single `report` field. The run cleans up after itself: every object it made is deleted again.",
+        "height": 460,
+        "width": 620,
+        "color": 4
+      },
+      "id": "sticky-readme",
+      "name": "Read me first",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One stamp for the whole run, so every object this workflow makes is named\n// zzz-test-<stamp>-... and can be told apart from anything else.\nconst stamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);\nreturn [{ json: { stamp, prefix: 'zzz-test-' + stamp } }];"
+      },
+      "id": "prepare",
+      "name": "Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "renderFree",
+        "freeContent": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-free",
+        "freeFormat": "png",
+        "binaryProperty": "data",
+        "freeOptions": {
+          "size": 256,
+          "margin": 4,
+          "ecc": "M"
+        }
+      },
+      "id": "render-free-",
+      "name": "Render (Free)",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -260
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "readFree",
+        "readBinaryProperty": "data",
+        "readFormats": "qr"
+      },
+      "id": "read-free-",
+      "name": "Read (Free)",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -260
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "render",
+        "content": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-render",
+        "format": "png",
+        "binaryProperty": "data",
+        "imageOptions": {
+          "size": 512
+        },
+        "design": {
+          "style": "rounded",
+          "eyes": "rounded",
+          "color": "#101828",
+          "bgcolor": "#FFFFFF",
+          "margin": 4
+        }
+      },
+      "id": "render",
+      "name": "Render",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -260
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "create",
+        "destination": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-a",
+        "name": "={{ $('Prepare').first().json.prefix }}-code-a",
+        "type": "URL",
+        "additionalFields": {
+          "kind": "DYNAMIC",
+          "status": "ACTIVE"
+        }
+      },
+      "id": "create-qr-code",
+      "name": "Create QR Code",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        -260
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "create",
+        "destination": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-b",
+        "name": "={{ $('Prepare').first().json.prefix }}-code-b",
+        "type": "URL",
+        "additionalFields": {
+          "kind": "DYNAMIC",
+          "status": "ACTIVE"
+        }
+      },
+      "id": "create-qr-code-b",
+      "name": "Create QR Code B",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Create QR Code').first().json.data?.shortUrl || 'https://example.com/no-code' }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": false
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "fire-a-scan",
+      "name": "Fire a Scan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        100,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "get",
+        "codeId": "={{ $('Create QR Code').first().json.data?.id }}"
+      },
+      "id": "get-qr-code",
+      "name": "Get QR Code",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        360,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "update",
+        "codeId": "={{ $('Create QR Code').first().json.data?.id }}",
+        "updateFields": {
+          "name": "={{ $('Prepare').first().json.prefix }}-code-a-repointed",
+          "destination": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-a2",
+          "note": "zzz-test re-point"
+        }
+      },
+      "id": "update-qr-code",
+      "name": "Update QR Code",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "getImage",
+        "codeId": "={{ $('Create QR Code').first().json.data?.id }}",
+        "format": "png",
+        "binaryProperty": "data",
+        "imageOptions": {
+          "size": 256
+        }
+      },
+      "id": "get-qr-image",
+      "name": "Get QR Image",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "scans",
+        "codeId": "={{ $('Create QR Code').first().json.data?.id }}",
+        "scansFrom": "",
+        "scansTo": "",
+        "scansDimension": "country"
+      },
+      "id": "get-scans",
+      "name": "Get Scans",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        -40
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "getAll",
+        "limit": 10,
+        "offset": 0,
+        "q": "={{ $('Prepare').first().json.prefix }}",
+        "filters": {}
+      },
+      "id": "get-many-qr-codes",
+      "name": "Get Many QR Codes",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "bulk",
+        "bulkIds": [
+          "={{ $('Create QR Code').first().json.data?.id }}",
+          "={{ $('Create QR Code B').first().json.data?.id }}"
+        ],
+        "bulkAction": "status",
+        "bulkStatus": "PAUSED"
+      },
+      "id": "change-many",
+      "name": "Change Many",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        100,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "link",
+        "operation": "create",
+        "url": "=https://example.com/?{{ $('Prepare').first().json.prefix }}-link",
+        "linkFields": {
+          "name": "={{ $('Prepare').first().json.prefix }}-link"
+        }
+      },
+      "id": "create-short-link",
+      "name": "Create Short Link",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        360,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "link",
+        "operation": "getAll",
+        "limit": 10,
+        "offset": 0,
+        "q": "={{ $('Prepare').first().json.prefix }}"
+      },
+      "id": "get-many-short-links",
+      "name": "Get Many Short Links",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        620,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "analytics",
+        "operation": "get",
+        "from": "={{ $now.minus({ days: 30 }).toFormat('yyyy-MM-dd') }}",
+        "to": "={{ $now.toFormat('yyyy-MM-dd') }}",
+        "dimension": "country"
+      },
+      "id": "get-analytics",
+      "name": "Get Analytics",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        880,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "createFolder",
+        "folderName": "={{ $('Prepare').first().json.prefix }}-folder"
+      },
+      "id": "create-folder",
+      "name": "Create Folder",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        180
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "getAllFolders"
+      },
+      "id": "get-many-folders",
+      "name": "Get Many Folders",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "tag",
+        "operation": "getAllTags"
+      },
+      "id": "get-many-tags",
+      "name": "Get Many Tags",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        100,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "utmPreset",
+        "operation": "getAllUtmPresets"
+      },
+      "id": "get-many-utm-presets",
+      "name": "Get Many UTM Presets",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        360,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "form",
+        "operation": "getAllForms"
+      },
+      "id": "get-many-forms",
+      "name": "Get Many Forms",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        620,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "form",
+        "operation": "responses",
+        "formId": "={{ $('Get Many Forms').first().json.data?.[0]?.id || 'no-form-in-this-workspace' }}",
+        "responseLimit": 10,
+        "responseOffset": 0
+      },
+      "id": "get-form-responses",
+      "name": "Get Form Responses",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        880,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "page",
+        "operation": "getAllPages"
+      },
+      "id": "get-many-qr-menus",
+      "name": "Get Many QR Menus",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        400
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "delete",
+        "codeId": "={{ $('Create QR Code').first().json.data?.id }}"
+      },
+      "id": "delete-qr-code",
+      "name": "Delete QR Code",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        620
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "bulk",
+        "bulkIds": [
+          "={{ $('Create QR Code B').first().json.data?.id }}"
+        ],
+        "bulkAction": "delete"
+      },
+      "id": "bulk-delete-qr-code-b",
+      "name": "Bulk Delete QR Code B",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        100,
+        620
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "code",
+        "operation": "delete",
+        "codeId": "={{ $('Create Short Link').first().json.data?.id }}"
+      },
+      "id": "delete-short-link",
+      "name": "Delete Short Link",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        360,
+        620
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "deleteFolder",
+        "folderId": "={{ $('Create Folder').first().json.data?.id }}"
+      },
+      "id": "delete-folder",
+      "name": "Delete Folder",
+      "type": "n8n-nodes-qrsalt.qrSalt",
+      "typeVersion": 1,
+      "position": [
+        580,
+        620
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "qrSaltApi": {
+          "id": "qrsalt-account",
+          "name": "QRSalt account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds one item with one string field, \"report\", to copy in a single click.\nconst pad = (s) => (s + '                          ').slice(0, 22);\nconst lines = [];\nconst failures = [];\nconst notes = [];\n\nconst grab = (n) => { try { const a = $(n).all(); return a.length ? (a[0].json || {}) : {}; } catch (e) { return { __missing: e.message }; } };\nconst bin = (n) => { try { const a = $(n).all(); return a.length ? (a[0].binary || {}) : {}; } catch (e) { return {}; } };\n\nfunction errOf(j) {\n  if (!j) return 'no output';\n  if (j.__missing) return 'node did not run (' + j.__missing + ')';\n  const e = j.error;\n  if (!e) return null;\n  if (typeof e === 'string') return e;\n  if (typeof e === 'object') return e.message || e.description || JSON.stringify(e).slice(0, 200);\n  return String(e);\n}\n\nfunction fileInfo(b) {\n  const f = b && b.data;\n  if (!f) return 'NO BINARY FIELD \"data\"';\n  let bytes = null;\n  try { if (f.data) bytes = Buffer.from(f.data, 'base64').length; } catch (e) {}\n  return (f.mimeType || '?') + ' ' + (bytes != null ? bytes + ' B' : (f.fileSize || 'size unknown'));\n}\n\nconst n = (x) => (x === undefined || x === null ? '?' : x);\nconst count = (j) => (Array.isArray(j.data) ? j.data.length : (j.meta && j.meta.total != null ? j.meta.total : '?'));\n\nfunction row(label, node, describe) {\n  const j = grab(node);\n  const e = errOf(j);\n  if (e) {\n    failures.push(label + ' — ' + String(e).replace(/\\s+/g, ' ').slice(0, 300));\n    lines.push(pad(label) + 'FAIL  ' + String(e).replace(/\\s+/g, ' ').slice(0, 180));\n    return;\n  }\n  let note = '';\n  try { note = describe ? String(describe(j, bin(node)) ?? '') : ''; }\n  catch (err) { note = '(could not summarise: ' + err.message + ')'; }\n  lines.push(pad(label) + 'ok    ' + note);\n}\n\nrow('render', 'Render', (j, b) => fileInfo(b));\nrow('renderFree', 'Render (Free)', (j, b) => fileInfo(b));\nrow('readFree', 'Read (Free)', (j) => {\n  const keys = ['success', 'data', 'format', 'version', 'errorCorrection', 'mask'];\n  const missing = keys.filter((k) => !(k in j));\n  return 'text=\"' + String(j.data || '').slice(0, 40) + '\" format=' + n(j.format) +\n    (missing.length ? '  SHAPE MISMATCH, missing: ' + missing.join(',') : '');\n});\nrow('codeCreate', 'Create QR Code', (j) => 'id=' + n(j.data && j.data.id) + ' slug=' + n(j.data && j.data.slug) + ' link=' + n(j.data && j.data.shortUrl));\nrow('codeCreateB', 'Create QR Code B', (j) => 'id=' + n(j.data && j.data.id));\nrow('scanFired', 'Fire a Scan', (j) => 'HTTP ' + n(j.statusCode) + ' on the short link (a real scan)');\nrow('codeGet', 'Get QR Code', (j) => 'name=' + n(j.data && j.data.name) + ' status=' + n(j.data && j.data.status));\nrow('codeUpdate', 'Update QR Code', (j) => 'destination=' + String((j.data && j.data.destination) || '?').slice(0, 50));\nrow('codeGetImage', 'Get QR Image', (j, b) => fileInfo(b));\nrow('codeGetScans', 'Get Scans', (j) => (j.data && j.data.summary ? j.data.summary.scans + ' scans, ' + j.data.summary.uniques + ' unique' : 'NO summary in payload'));\nrow('codeGetMany', 'Get Many QR Codes', (j) => count(j) + ' codes from this run');\nrow('codeChangeMany', 'Change Many', (j) => (j.data ? 'action=' + n(j.data.action) + ' done=' + n(j.data.done) + ' unchanged=' + n(j.data.unchanged) + ' skipped=' + n(j.data.skipped) : 'NO data'));\nrow('linkCreate', 'Create Short Link', (j) => 'id=' + n(j.data && j.data.id) + ' link=' + n(j.data && j.data.shortUrl));\nrow('linkGetMany', 'Get Many Short Links', (j) => count(j) + ' links from this run');\nrow('analytics', 'Get Analytics', (j) => (j.data && j.data.summary\n  ? j.data.summary.scans + ' scans / ' + (j.data.series ? j.data.series.length : '?') + ' days' +\n    (j.data.breakdown ? ', breakdown ' + (Array.isArray(j.data.breakdown) ? j.data.breakdown.length + ' rows' : 'present') : ', NO breakdown returned')\n  : 'NO summary'));\nrow('folderCreate', 'Create Folder', (j) => 'id=' + n(j.data && j.data.id) + ' name=' + n(j.data && j.data.name));\nrow('folderGetMany', 'Get Many Folders', (j) => count(j) + ' folders');\nrow('tagGetMany', 'Get Many Tags', (j) => count(j) + ' tags');\nrow('utmGetMany', 'Get Many UTM Presets', (j) => count(j) + ' presets');\nrow('formGetMany', 'Get Many Forms', (j) => count(j) + ' forms');\n\nconst forms = grab('Get Many Forms');\nif (Array.isArray(forms.data) && forms.data.length > 0) {\n  row('formResponses', 'Get Form Responses', (j) => count(j) + ' responses');\n} else {\n  lines.push(pad('formResponses') + 'skip  no QR Form exists in this workspace, so there is nothing to read');\n}\n\nrow('menuGetMany', 'Get Many QR Menus', (j) => count(j) + ' menus');\nrow('codeDelete', 'Delete QR Code', (j) => 'status now ' + n(j.data && j.data.status));\nrow('codeBulkDelete', 'Bulk Delete QR Code B', (j) => (j.data ? 'done=' + n(j.data.done) : 'NO data'));\nrow('linkDelete', 'Delete Short Link', (j) => 'status now ' + n(j.data && j.data.status));\nrow('folderDelete', 'Delete Folder', (j) => (j.data ? 'deleted, ' + n(j.data.codesUnfiled) + ' codes moved out of it (none deleted)' : 'NO data'));\n\nconst removed = [];\nif (!errOf(grab('Delete QR Code'))) removed.push('QR code A');\nif (!errOf(grab('Bulk Delete QR Code B'))) removed.push('QR code B');\nif (!errOf(grab('Delete Short Link'))) removed.push('short link');\nif (!errOf(grab('Delete Folder'))) removed.push('folder');\nlines.push(pad('cleanup') + (removed.length === 4 ? 'ok    ' : 'FAIL  ') + removed.length + ' of 4 deletable objects removed: ' + (removed.join(', ') || 'none'));\n\nnotes.push('Scans are counted when QRSalt serves the redirect, so getScans may still read 0 if counting lags this run.');\n\nconst stamp = (() => { try { return $('Prepare').first().json.stamp; } catch (e) { return 'unknown'; } })();\nconst report = [\n  'QRSalt n8n node test — ' + new Date().toISOString() + ' — run ' + stamp,\n  ''.padEnd(64, '-'),\n  ...lines,\n  ''.padEnd(64, '-'),\n  'FAILURES: ' + (failures.length ? failures.length : 'none'),\n  ...failures.map((f) => '  - ' + f),\n  'NOTES:',\n  ...notes.map((t) => '  - ' + t),\n].join('\\n');\n\nreturn [{ json: { report } }];"
+      },
+      "id": "summary",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        620
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare": {
+      "main": [
+        [
+          {
+            "node": "Render (Free)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render (Free)": {
+      "main": [
+        [
+          {
+            "node": "Read (Free)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read (Free)": {
+      "main": [
+        [
+          {
+            "node": "Render",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render": {
+      "main": [
+        [
+          {
+            "node": "Create QR Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create QR Code": {
+      "main": [
+        [
+          {
+            "node": "Create QR Code B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create QR Code B": {
+      "main": [
+        [
+          {
+            "node": "Fire a Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fire a Scan": {
+      "main": [
+        [
+          {
+            "node": "Get QR Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get QR Code": {
+      "main": [
+        [
+          {
+            "node": "Update QR Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update QR Code": {
+      "main": [
+        [
+          {
+            "node": "Get QR Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get QR Image": {
+      "main": [
+        [
+          {
+            "node": "Get Scans",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Scans": {
+      "main": [
+        [
+          {
+            "node": "Get Many QR Codes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many QR Codes": {
+      "main": [
+        [
+          {
+            "node": "Change Many",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Change Many": {
+      "main": [
+        [
+          {
+            "node": "Create Short Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Short Link": {
+      "main": [
+        [
+          {
+            "node": "Get Many Short Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many Short Links": {
+      "main": [
+        [
+          {
+            "node": "Get Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Analytics": {
+      "main": [
+        [
+          {
+            "node": "Create Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Folder": {
+      "main": [
+        [
+          {
+            "node": "Get Many Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many Folders": {
+      "main": [
+        [
+          {
+            "node": "Get Many Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many Tags": {
+      "main": [
+        [
+          {
+            "node": "Get Many UTM Presets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many UTM Presets": {
+      "main": [
+        [
+          {
+            "node": "Get Many Forms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many Forms": {
+      "main": [
+        [
+          {
+            "node": "Get Form Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Form Responses": {
+      "main": [
+        [
+          {
+            "node": "Get Many QR Menus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Many QR Menus": {
+      "main": [
+        [
+          {
+            "node": "Delete QR Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete QR Code": {
+      "main": [
+        [
+          {
+            "node": "Bulk Delete QR Code B",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bulk Delete QR Code B": {
+      "main": [
+        [
+          {
+            "node": "Delete Short Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Short Link": {
+      "main": [
+        [
+          {
+            "node": "Delete Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Folder": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
