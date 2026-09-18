@@ -228,6 +228,14 @@ export class QrSalt implements INodeType {
         displayOptions: { show: { resource: ['code'], operation: ['delete'] } },
       },
       {
+        displayName:
+          'This downloads the picture as a file. If what you want is a <b>link</b> to put in an email, a spreadsheet cell or a Slack message, use <code>publicImage</code> from Create, Get or Get Many instead: it is a PNG address that opens for anyone, with no API key and no header, so it works in the places a file does not. Treat it as public — anyone you send it to can open it and pass it on. It stops working when the code is deleted.',
+        name: 'publicImageNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['code'], operation: ['getImage'] } },
+      },
+      {
         displayName: 'Destination',
         name: 'destination',
         type: 'string',

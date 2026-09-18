@@ -208,7 +208,7 @@ result under `data`, paging and notes under `meta`.
 
 | Operation | Key fields | Returns |
 | --- | --- | --- |
-| Create | Destination (or Payload, for non-URL types), Name, Type, plus Kind, Slug, Domain, Folder, Tags, Status | The new code under `data`, with `id`, `shortUrl` and `image` |
+| Create | Destination (or Payload, for non-URL types), Name, Type, plus Kind, Slug, Domain, Folder, Tags, Status | The new code under `data`, with `id`, `shortUrl`, `image` and `publicImage` |
 | Get | Code ID | The code |
 | Get Many | Limit, Offset, Search, Filters (status, tag, folder, domain, output) | A list, with `meta.nextOffset` |
 | Update | Code ID, then any of Destination, Name, Slug, Domain, Folder, Tags, Status, Note | The updated code |
@@ -216,6 +216,17 @@ result under `data`, paging and notes under `meta`.
 | Change Many | Code IDs (up to 500), Action: status, folder, domain, tags, UTM preset or delete | Each ID under `results`, done or skipped with a reason |
 | Get Image | Code ID, Format, Size or Printed Width | The file, in the binary field you name |
 | Get Scans | Code ID, From, To, Breakdown | Totals and a daily series |
+
+Every code comes back with two image addresses. `image` is the API endpoint,
+which needs your API key in an `Authorization` header — right for another
+request, useless anywhere a person pastes a URL. `publicImage` is the same
+picture at a link that opens for anyone: no key, no header, so it works in an
+email, a Google Sheets cell, a Slack message or an `<img src>`. It serves the
+picture and nothing else — no name, no destination, no scan count — as a PNG, or
+as SVG if you swap the extension. Treat it as public: the address is signed, so
+it cannot be guessed from the slug, but anyone you send it to can open it and
+pass it on. It never changes, and it stops working the moment the code is
+deleted.
 
 **Kind** decides everything downstream. A **dynamic** code (the default) is the
 one worth printing: the scan goes through QRSalt, so Update changes where every
