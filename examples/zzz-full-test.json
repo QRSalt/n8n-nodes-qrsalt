@@ -110,13 +110,7 @@
         -260
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -139,13 +133,7 @@
         -260
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -168,13 +156,7 @@
         -40
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -219,13 +201,7 @@
         -40
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -247,13 +223,7 @@
         -40
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -275,13 +245,7 @@
         -40
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -301,13 +265,7 @@
         -40
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -327,13 +285,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -355,13 +307,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -381,13 +327,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -406,13 +346,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -431,13 +365,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -454,13 +382,7 @@
         180
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -476,13 +398,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -498,13 +414,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -520,13 +430,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -542,13 +446,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -567,13 +465,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -589,13 +481,7 @@
         400
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -612,13 +498,7 @@
         620
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -638,13 +518,7 @@
         620
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -661,13 +535,7 @@
         620
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -684,13 +552,7 @@
         620
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -729,13 +591,7 @@
         -420
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "credentials": {
-        "qrSaltApi": {
-          "id": null,
-          "name": "QRSalt account"
-        }
-      }
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {

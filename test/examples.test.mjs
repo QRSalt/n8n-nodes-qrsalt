@@ -283,6 +283,32 @@ test('every $() reference in the test workflows names a node upstream of the rea
   }
 })
 
+/**
+ * A credential in an exported workflow is a reference to one on the instance
+ * the file is opened on, so the file cannot carry a useful one. n8n keeps an
+ * entry whose id is null (`removeUnknownCredentials` skips it) and then refuses
+ * the run with "Found credential with no ID" — which stops even the keyless
+ * nodes. Carrying none at all is what lets n8n bind the reader's own credential
+ * on import: it only auto-selects for a node whose credentials are empty.
+ */
+test('no workflow ships a credential of its own', () => {
+  for (const [name, wf] of [
+    ['zzz-full-test.json', full],
+    ['zzz-trigger-test.json', trigger],
+    ...['print-batch-from-spreadsheet.json', 'repoint-a-printed-code.json', 'slack-on-scan.json'].map(
+      (file) => [file, read(file)],
+    ),
+  ]) {
+    for (const node of wf.nodes) {
+      assert.equal(
+        node.credentials,
+        undefined,
+        `${name}: ${node.name} ships a credential, which n8n cannot resolve`,
+      )
+    }
+  }
+})
+
 /** The run has to start by proving the key, or a broken key looks like a pass. */
 test('the full test checks the credential before anything that needs it', () => {
   const check = full.nodes.find((n) => n.name === 'Check Credential')

@@ -135,15 +135,14 @@ Totals and a daily series for the whole workspace. For one code instead, use
 node against a real workspace and tidies up after itself. Use it to prove a new
 key, a new plan or a new release end to end.
 
-1. Make a credential of type **QRSalt API**, named exactly `QRSalt account`,
-   **before you import**. The file names that credential instead of carrying an
-   ID, which is what lets n8n bind the nodes to yours as they come in.
+1. Make a credential of type **QRSalt API** **before you import**. The file
+   carries no credential of its own, so n8n binds yours to every QRSalt node as
+   the workflow comes in and says so in a toast.
 2. **Workflows → Import from file**.
-3. Check it bound: open the first node, **Check Credential**. If the Credential
-   field is empty — you named yours something else — pick yours there, and n8n
-   moves the other nodes off the name it could not find. Any node still showing
-   an empty Credential field must be filled in by hand before the run means
-   anything.
+3. Fill in the one node n8n leaves alone: open **Check Credential** and pick
+   your credential there. It is an HTTP Request node, and n8n never binds those
+   for you. Any other node still showing an empty Credential field has to be
+   filled in by hand before the run means anything.
 4. Press **Execute workflow** once.
 5. Open the last node, **Summary**, and copy its single `report` field.
 
@@ -191,7 +190,7 @@ delete lines fail and the rest still runs.
 
 A scan trigger cannot fire from a manual execution, so it ships separately as
 [`examples/zzz-trigger-test.json`](examples/zzz-trigger-test.json): import it,
-pick the credential on the trigger node, and **switch the workflow on** —
+check the credential on the trigger node, and **switch the workflow on** —
 activating is what registers the endpoint with QRSalt. QRSalt has to reach your
 n8n from the internet, so on a laptop start it with `n8n start --tunnel`. Then run
 `zzz-full-test`: it requests the short link it created, which is a real scan, and
