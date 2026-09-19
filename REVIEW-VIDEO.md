@@ -40,7 +40,7 @@ key. The recording is yours to make; everything else is below.
 
 | # | Do this | What the frame proves | Time |
 |---|---|---|---|
-| 1 | **Settings → Community nodes → Install**, type `n8n-nodes-qrsalt`, tick the risk box, Install. When it lands, point at the version — it must read **0.1.5**, the version submitted. | Installed from npm, same version. | 0:45 |
+| 1 | **Settings → Community nodes → Install**, type `n8n-nodes-qrsalt`, tick the risk box, Install. When it lands, point at the version — it must read **0.1.6**, the version submitted. | Installed from npm, same version. | 0:45 |
 | 2 | **Overview → Create Workflow**. Click the **+**, type `QR code` in the search. Both **QRSalt** and **QRSalt Trigger** appear. Pause a second on the list. | The search terms people actually type find the node. | 0:20 |
 | 3 | Add **QRSalt**. Set Resource **QR Image**, Operation **Render (Free)**. Content `https://qrsalt.com`. Leave the credential empty. **Test step**. An image comes back in the output panel. | The free path works with no account at all — nothing to sign up for. | 0:30 |
 | 4 | In the same node, Credential → **Create new credential**. Paste the API key, leave Base URL as is, Save. Wait for the green **Connection tested successfully**. | Step 3 of n8n's list: a new credential, and its test passing. | 0:30 |

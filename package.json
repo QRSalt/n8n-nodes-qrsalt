@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-qrsalt",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "QRSalt nodes for n8n: generate QR codes and short links, render and read QR code images, re-point a printed QR code, read its scan analytics, and trigger on every scan.",
   "keywords": [
     "n8n-community-node-package",
