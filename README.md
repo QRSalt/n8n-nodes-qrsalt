@@ -215,10 +215,10 @@ result under `data`, paging and notes under `meta`.
 
 | Operation | Key fields | Returns |
 | --- | --- | --- |
-| Create | Destination (or Payload, for non-URL types), Name, Type, plus Kind, Slug, Domain, Folder, Tags, Status | The new code under `data`, with `id`, `shortUrl`, `image` and `publicImage` |
+| Create | Type, then that type's own content fields (Destination for a website code), Name, plus Kind, Slug, Domain, Folder, Tags, Status | The new code under `data`, with `id`, `shortUrl`, `image` and `publicImage` |
 | Get | Code ID | The code |
 | Get Many | Limit, Offset, Search, Filters (status, tag, folder, domain, output) | A list, with `meta.nextOffset` |
-| Update | Code ID, then any of Destination, Name, Slug, Domain, Folder, Tags, Status, Note | The updated code |
+| Update | Code ID, then Content Type and that type's fields to change what the code holds, and any of Destination, Name, Slug, Domain, Folder, Tags, Status, Note | The updated code |
 | Delete | Code ID | Confirmation |
 | Change Many | Code IDs (up to 500), Action: status, folder, domain, tags, UTM preset or delete | Each ID under `results`, done or skipped with a reason |
 | Get Image | Code ID, Format, Size or Printed Width | The file, in the binary field you name |
@@ -240,10 +240,28 @@ one worth printing: the scan goes through QRSalt, so Update changes where every
 printed copy lands. A **static** code carries its destination inside the pattern
 and can never be changed.
 
-**Type** covers URL, Text, vCard, Wi-Fi, Email, SMS, Phone, Location, Event,
-Payment, Review, PDF, Audio, Gallery, App Store, Landing Page and GS1 Digital
-Link. Anything other than URL takes a Payload; the API validates its shape and
-names what is missing.
+**Type** covers URL, Text, vCard, Wi-Fi, Email, SMS, Phone, Location, Calendar
+Event, Payment Link, Review Request, App Store Link and GS1 Digital Link.
+Choosing one reveals the fields that type carries — a network name and
+encryption for Wi-Fi, a first name and a company for a contact card, a start
+time and a zone for an event — and the node sends them as the `payload` object
+the API validates. A website code keeps the **Destination** box it has always
+had, so a workflow built against an earlier version needs no change.
+
+**PDF file** codes are not offered. Their content names a file on QRSalt's
+servers and the key for one is minted by the upload endpoint, so there is
+nothing this node could collect: upload the PDF in the dashboard, or call
+`POST /api/v1/codes` yourself with the HTTP Request node. **Gallery** and
+**audio** codes are not built yet and the API refuses them.
+
+**Update** changes content the same way: pick the **Content Type** the code
+already is and fill the fields you want it to hold. What you fill in *replaces*
+the code's content, so anything you leave empty is cleared; leaving Content Type
+on **Unchanged** touches nothing, which is what an Update that only renames or
+re-files a code has always done. A content type that disagrees with the code is
+refused by name rather than quietly changing nothing. **Destination** on Update
+is the website code's content under another name — on any other type it is a key
+that payload does not have, so the call answers 200 and nothing changes.
 
 **Get Image** returns the saved code as SVG, PNG, JPG, WebP or PDF — with its
 dashboard design, colours and logo — straight into a binary field, so the next
@@ -442,7 +460,10 @@ failed, so the workflow can branch on it without mistaking it for an answer.
 
 | Message | What it means |
 | --- | --- |
-| `This operation needs a QRSalt API key, and this node has none.` | No credential is picked on the node. Only QR Image → Render (Free) and Read (Free) run without one |
+| `This node has no QRSalt API credential attached…` | No credential is picked on the node. An imported workflow has none until each node is opened once — n8n attaches yours then, not on import. Only QR Image → Render (Free) and Read (Free) run without one |
+| `The QRSalt API credential on this node has no API key in it.` | The credential is picked but its API Key field is empty |
+| `This node's QRSalt API credential could not be read…` | A credential is attached and n8n would not hand it over. The message carries what n8n said |
+| `This node's API key never reached QRSalt.` | The credential holds a key and the request still went out with no `Authorization` header. Open the node once and run again |
 | `QRSalt refused this API key.` | A credential is picked, but the key is wrong or revoked — or the credential's Base URL is not the instance the key was made on |
 | `That API key is not valid.` | Wrong, revoked, or its workspace is gone |
 | `… over the API comes with Pro and above.` | The key is fine; the plan does not include API access |

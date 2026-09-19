@@ -7,6 +7,7 @@ import type {
   INodeTypeDescription,
 } from 'n8n-workflow'
 import { NodeConnectionTypes } from 'n8n-workflow'
+import { CONTENT_TYPE_OPTIONS, contentProperties } from './content'
 import { sendFairnessId } from './fairness'
 import { PUBLIC_ORIGIN } from './origin'
 import { PRICING, withPlanNotes } from './plans'
@@ -236,17 +237,6 @@ export class QrSalt implements INodeType {
         displayOptions: { show: { resource: ['code'], operation: ['getImage'] } },
       },
       {
-        displayName: 'Destination',
-        name: 'destination',
-        type: 'string',
-        default: '',
-        placeholder: 'e.g. https://example.com/spring-menu',
-        description:
-          'Where the code opens. For a dynamic code this is what you change later. Leave it empty only if you are sending a Payload instead.',
-        displayOptions: { show: { resource: ['code'], operation: ['create'] } },
-        routing: { send: { type: 'body', property: 'destination' } },
-      },
-      {
         displayName: 'Name',
         name: 'name',
         type: 'string',
@@ -262,28 +252,36 @@ export class QrSalt implements INodeType {
         type: 'options',
         default: 'URL',
         description:
-          'What the code encodes. Types beyond URL need a Payload; the API validates its shape and says what is missing.',
+          'What the code encodes. Choosing one reveals the fields that type carries; the API validates them and says which is missing.',
         displayOptions: { show: { resource: ['code'], operation: ['create'] } },
-        options: [
-          { name: 'App Store', value: 'APP_STORE' },
-          { name: 'Audio', value: 'AUDIO' },
-          { name: 'Calendar Event', value: 'EVENT' },
-          { name: 'Contact Card (vCard)', value: 'VCARD' },
-          { name: 'Email', value: 'EMAIL' },
-          { name: 'Gallery', value: 'GALLERY' },
-          { name: 'GS1 Digital Link', value: 'GS1' },
-          { name: 'Landing Page', value: 'LANDING' },
-          { name: 'Location', value: 'LOCATION' },
-          { name: 'Payment', value: 'PAYMENT' },
-          { name: 'PDF', value: 'PDF' },
-          { name: 'Phone', value: 'PHONE' },
-          { name: 'Review', value: 'REVIEW' },
-          { name: 'SMS', value: 'SMS' },
-          { name: 'Text', value: 'TEXT' },
-          { name: 'URL', value: 'URL' },
-          { name: 'Wi-Fi', value: 'WIFI' },
-        ],
+        options: CONTENT_TYPE_OPTIONS,
         routing: { send: { type: 'body', property: 'type' } },
+      },
+      {
+        // The Destination box this operation has always had, now shown for the
+        // one type whose content it is. The API reads `destination` as
+        // `payload.url`, so on any other type it was never the content — which
+        // is why every structured type used to come back 422 naming a field
+        // nobody had been shown. Same name, same routing, so a workflow made
+        // against 0.1.6 keeps working unchanged.
+        displayName: 'Destination',
+        name: 'destination',
+        type: 'string',
+        default: '',
+        placeholder: 'e.g. https://example.com/spring-menu',
+        description:
+          'Where the code opens. For a dynamic code this is what you change later.',
+        displayOptions: { show: { resource: ['code'], operation: ['create'], type: ['URL'] } },
+        routing: { send: { type: 'body', property: 'destination' } },
+      },
+      ...contentProperties({ prefix: 'create', typeParameter: 'type', operation: 'create' }),
+      {
+        displayName:
+          'A <b>PDF file</b> code is not offered here. Its content names a file on QRSalt’s servers, and the key for one is minted by the upload endpoint rather than typed — so there is nothing this node could collect. Upload the PDF in the dashboard, or call <code>POST /api/v1/codes</code> yourself with the HTTP Request node. <b>Gallery</b> and <b>audio</b> codes are not built yet and the API refuses them.',
+        name: 'typeNotice',
+        type: 'notice',
+        default: '',
+        displayOptions: { show: { resource: ['code'], operation: ['create'] } },
       },
       {
         displayName: 'Additional Fields',
@@ -337,8 +335,18 @@ export class QrSalt implements INodeType {
             type: 'json',
             default: '',
             description:
-              'For types other than URL. Its shape depends on the type and is validated by the API.',
-            routing: { send: { type: 'body', property: 'payload' } },
+              'Only for content the fields above cannot express, such as a PDF file code. It replaces whatever those fields built. Its shape depends on the type and is validated by the API.',
+            // A `json` parameter's value is the text in the box, and the API
+            // refuses a string where the payload object should be ("Expected
+            // object, received string"). Parsed here, so what goes on the wire
+            // is the object that was typed.
+            routing: {
+              send: {
+                type: 'body',
+                property: 'payload',
+                value: '={{ $value ? (typeof $value === "string" ? JSON.parse($value) : $value) : undefined }}',
+              },
+            },
           },
           {
             displayName: 'Status',
@@ -364,6 +372,55 @@ export class QrSalt implements INodeType {
         ],
       },
       {
+        /*
+         * The code's content, in the shape its type takes.
+         *
+         * Update used to offer Destination alone, which is `payload.url`. On a
+         * website code that repoints it. On a contact card, a Wi-Fi join, a
+         * GS1 link, a review or a location it is a field that type does not
+         * have — the API rounds the stored payload back through its own schema
+         * and the key is dropped, so the call answers 200 and nothing changes
+         * at all. A silent no-op is the worst answer of the three, because a
+         * workflow reports it as a success.
+         *
+         * Leaving this on "Unchanged" sends nothing and leaves the content
+         * alone, which is what an Update that only renames or re-files a code
+         * has always done.
+         */
+        displayName: 'Content Type',
+        name: 'contentType',
+        type: 'options',
+        default: 'UNCHANGED',
+        description:
+          'The type of the code you are updating, when you want to change what it holds. Choosing it reveals that type’s fields, and the fields you fill <b>replace</b> the code’s content — anything you leave empty is cleared. A type that disagrees with the code is refused by name rather than quietly doing nothing.',
+        displayOptions: { show: { resource: ['code'], operation: ['update'] } },
+        options: [...CONTENT_TYPE_OPTIONS, { name: 'Unchanged', value: 'UNCHANGED' }].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      },
+      {
+        // The type goes with the content, so the API can refuse a payload
+        // aimed at the wrong code. Its own parameter rather than routing on
+        // the picker above, because "Unchanged" must send nothing: a payload
+        // carrying only its type means "leave the content alone", and one
+        // carrying nothing at all means the same.
+        displayName: 'Payload Type',
+        name: 'contentTypeSent',
+        type: 'hidden',
+        default: '',
+        displayOptions: {
+          show: {
+            resource: ['code'],
+            operation: ['update'],
+            contentType: CONTENT_TYPE_OPTIONS.map((option) => option.value),
+          },
+        },
+        routing: {
+          send: { type: 'body', property: 'payload.type', value: '={{$parameter["contentType"]}}' },
+        },
+      },
+      ...contentProperties({ prefix: 'update', typeParameter: 'contentType', operation: 'update' }),
+      {
         displayName: 'Update Fields',
         name: 'updateFields',
         type: 'collection',
@@ -384,7 +441,8 @@ export class QrSalt implements INodeType {
             name: 'destination',
             type: 'string',
             default: '',
-            description: 'The new address. Every printed copy opens it from the next scan.',
+            description:
+              'The new address of a <b>website</b> code. Every printed copy opens it from the next scan. It is the URL content field under another name, so on any other type it changes nothing and the call still answers 200 — use Content Type above for those.',
             routing: { send: { type: 'body', property: 'destination' } },
           },
           {
