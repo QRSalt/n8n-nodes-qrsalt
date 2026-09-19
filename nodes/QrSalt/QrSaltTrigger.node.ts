@@ -211,6 +211,8 @@ export class QrSaltTrigger implements INodeType {
         const subscribed = new Set(endpoint.events ?? [])
         const missing = events.filter((event) => !subscribed.has(event))
         if (missing.length > 0) {
+          // Best effort: the event error below is the one to act on, so a failed
+          // cleanup must not replace it. The description says what it can leave.
           await this.helpers.httpRequestWithAuthentication
             .call(this, 'qrSaltApi', {
               method: 'DELETE',
@@ -221,7 +223,10 @@ export class QrSaltTrigger implements INodeType {
           throw new NodeOperationError(
             this.getNode(),
             `QRSalt no longer has these events: ${missing.join(', ')}.`,
-            { description: 'Remove them under Events and activate the workflow again.' },
+            {
+              description:
+                'Remove them under Events and activate the workflow again. The endpoint just registered is removed again, but if that removal did not go through it is still listed under Settings → Webhooks in QRSalt.',
+            },
           )
         }
 

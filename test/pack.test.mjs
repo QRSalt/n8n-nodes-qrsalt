@@ -37,11 +37,16 @@ function packedFiles() {
 }
 
 let packed = null
+let why = ''
 try {
   packed = packedFiles()
-} catch {}
+} catch (error) {
+  // The skip carries the reason, so a pack that breaks here cannot pass as an
+  // environment without npm.
+  why = `npm pack did not run: ${error.message}`
+}
 
-test('the tarball carries every file n8n loads', { skip: packed ? false : 'npm pack unavailable' }, () => {
+test('the tarball carries every file n8n loads', { skip: packed ? false : why }, () => {
   for (const path of REQUIRED) {
     assert.ok(packed.includes(path), `${path} is missing from the tarball`)
   }
