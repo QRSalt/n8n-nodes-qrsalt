@@ -1,14 +1,25 @@
 # Example workflows
 
-**Make the QRSalt API credential first**, then import with **Workflows → Import
-from file**. No file here carries a credential of its own: an exported
+## Open every QRSalt node once after importing
+
+**n8n attaches your credential when a node is first opened, never on import.**
+Import a file, run it straight away, and the first QRSalt node fails with a 401
+— then the next one, and the next, one per run. Nothing is wrong with the key:
+the request went out with no `Authorization` header at all, because that node
+has no credential yet.
+
+So after importing, click through every QRSalt node once — opening it is enough,
+n8n picks your most recent QRSalt credential and the field fills in — then run.
+
+No file here carries a credential of its own, and none can: an exported
 credential is only a reference to one on the instance it came from, useless
-anywhere else. Carrying none is what lets n8n bind yours on import, which it
-does for a node whose credential field is empty. Check every QRSalt node has one
-before running. From 0.1.4 a
-QRSalt node with no credential fails the step and says so; the HTTP Request
-nodes in these files are n8n's own, and one of those with no credential is
-skipped, handing its input to the next node as though nothing had happened.
+anywhere else, and a reference n8n cannot resolve fails the node outright.
+
+**Make the QRSalt API credential first**, then import with **Workflows → Import
+from file**. From 0.1.4 a QRSalt node with no credential fails the step and says
+so; the HTTP Request nodes in these files are n8n's own, and one of those with
+no credential is skipped, handing its input to the next node as though nothing
+had happened.
 
 In the two `zzz-` test files a refused step turns the node **red and stops the
 run** — none of them is set to continue on error, so a missing or rejected key

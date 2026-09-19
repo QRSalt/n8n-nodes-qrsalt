@@ -115,22 +115,45 @@ function refusalIn(value: unknown): Refusal | null {
 }
 
 /**
- * Whether this node has a key to send at all.
+ * What this node's QRSalt credential amounts to when a keyed call is refused.
  *
  * A keyed operation with no credential goes out unauthenticated and comes back
  * 401, exactly like a revoked key does — the two need different sentences, and
- * this is what tells them apart. n8n throws rather than returning nothing when
- * the node has no credential bound, so the throw is the answer. The key itself
- * is never read out of here.
+ * this is what tells them apart. The key itself is never read out of here.
  */
-async function hasApiKey(context: IExecuteSingleFunctions): Promise<boolean> {
+type Credential =
+  | { state: 'key' }
+  | { state: 'none' }
+  | { state: 'empty' }
+  | { state: 'unreadable'; said: string }
+
+/**
+ * n8n's own wording for a node that has no credential bound. Any other throw is
+ * a credential that exists and could not be handed over — a different fault
+ * with a different fix, so it must never be reported as an absent one.
+ */
+const NOT_BOUND = /does not require credentials|does not have any credentials set/i
+
+async function credentialState(context: IExecuteSingleFunctions): Promise<Credential> {
+  let credentials: { apiKey?: unknown } | undefined
   try {
-    const credentials = await context.getCredentials<{ apiKey?: unknown }>('qrSaltApi')
-    return typeof credentials?.apiKey === 'string' && credentials.apiKey.trim() !== ''
-  } catch {
-    return false
+    credentials = await context.getCredentials<{ apiKey?: unknown }>('qrSaltApi')
+  } catch (error) {
+    const said = error instanceof Error ? error.message : String(error)
+    return NOT_BOUND.test(said) ? { state: 'none' } : { state: 'unreadable', said }
   }
+  const key = credentials?.apiKey
+  if (typeof key !== 'string' || key.trim() === '') return { state: 'empty' }
+  return { state: 'key' }
 }
+
+/**
+ * QRSalt's own sentence for a request that carried no `Authorization` header at
+ * all, as against one that carried a key it would not take. The server is the
+ * only witness to which of the two happened, so when it says the header never
+ * arrived the node repeats that rather than blaming the key it can see.
+ */
+const NO_HEADER = /^Send your API key as/
 
 /** The name of the operation that was run, or '' if it cannot be read. */
 function operationOf(context: IExecuteSingleFunctions): string {
@@ -146,9 +169,17 @@ interface Words {
   description?: string
 }
 
+/**
+ * Both ways a node ends up with no credential read the same from here, so one
+ * sentence has to cover both: a credential nobody picked, and an imported
+ * workflow whose nodes n8n has not bound one to yet. n8n attaches a credential
+ * the first time a node is opened in the editor, never on import, so an
+ * imported workflow fails one node per run until each has been opened once.
+ */
 const ADD_CREDENTIAL =
-  'Add a QRSalt API credential to this node: open the node and, under “Credential to connect with”, ' +
-  'pick one or choose Create new. The key is made in the QRSalt dashboard under Settings → API keys. ' +
+  'Open the node and, under “Credential to connect with”, pick one or choose Create new. The key is ' +
+  'made in the QRSalt dashboard under Settings → API keys. If this workflow was just imported, opening ' +
+  'each QRSalt node once is the whole fix: n8n attaches your credential then, not on import. ' +
   'QR Image → Render (Free) and Read (Free) are the only two operations that run without one.'
 
 /** What to say about a refusal, by what QRSalt refused it for. */
@@ -161,10 +192,35 @@ async function refusalWords(
   const code = refusal?.code
 
   if (status === 401 && !KEYLESS.has(operationOf(context))) {
-    if (!(await hasApiKey(context))) {
+    const credential = await credentialState(context)
+
+    if (credential.state === 'none') {
       return {
-        message: 'This operation needs a QRSalt API key, and this node has none.',
+        message: 'This node has no QRSalt API credential attached, so the call went out without a key.',
         description: ADD_CREDENTIAL,
+      }
+    }
+    if (credential.state === 'empty') {
+      return {
+        message: 'The QRSalt API credential on this node has no API key in it.',
+        description:
+          'Open the credential and paste the key from the QRSalt dashboard under Settings → API keys. ' +
+          'It is shown once, when it is made.',
+      }
+    }
+    if (credential.state === 'unreadable') {
+      return {
+        message: 'This node’s QRSalt API credential could not be read, so the call went out without a key.',
+        description: `A credential is attached and n8n would not hand it over. n8n said: ${credential.said}`,
+      }
+    }
+    if (said && NO_HEADER.test(said)) {
+      return {
+        message: 'This node’s API key never reached QRSalt.',
+        description:
+          'The credential holds a key, but the request went out with no Authorization header. If this ' +
+          'workflow was just imported, open the node once so n8n attaches the credential to it, then run ' +
+          `again. QRSalt said: ${said}`,
       }
     }
     return {

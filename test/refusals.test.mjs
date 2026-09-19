@@ -25,18 +25,37 @@ const ITEMS = [{ json: { error: { code: 'unauthenticated', message: 'nope' } } }
 
 /**
  * A stand-in for the single-item execution context the router calls the hook
- * with. `key` is the API key the node's credential holds, or null for a node
- * with no credential bound — which is what n8n signals by throwing.
+ * with. `key` is the API key the node's credential holds; `null` is a node with
+ * no credential bound, which n8n signals by throwing, and `throws` is a
+ * credential that exists and could not be handed over.
  */
-const context = ({ key = 'qr_live_test', operation = 'create', continueOnFail = false } = {}) => ({
+const context = ({
+  key = 'qr_live_test',
+  operation = 'create',
+  continueOnFail = false,
+  throws = null,
+} = {}) => ({
   getNode: () => ({ name: 'QRSalt', type: 'qrSalt', typeVersion: 1 }),
   getNodeParameter: (name, fallback) => (name === 'operation' ? operation : fallback),
   getCredentials: async () => {
-    if (key === null) throw new Error('Node does not have any credentials set')
+    if (throws) throw new Error(throws)
+    // n8n's own wording for a node the editor has never bound a credential to,
+    // which is every node of a workflow that was just imported.
+    if (key === null) throw new Error('Node does not require credentials')
     return { apiKey: key, baseUrl: 'https://app.qrsalt.com' }
   },
   continueOnFail: () => continueOnFail,
 })
+
+/** The three sentences a 401 on a keyed operation is allowed to produce. */
+const SAID = {
+  none: 'This node has no QRSalt API credential attached, so the call went out without a key.',
+  empty: 'The QRSalt API credential on this node has no API key in it.',
+  unreadable:
+    'This node’s QRSalt API credential could not be read, so the call went out without a key.',
+  unsent: 'This node’s API key never reached QRSalt.',
+  refused: 'QRSalt refused this API key.',
+}
 
 /** A full response the way n8n hands one on with `returnFullResponse`. */
 const answer = (statusCode, body) => ({ statusCode, headers: {}, body })
@@ -118,12 +137,16 @@ const UNIFIED_IMAGE_BODY = {
   docs: '/qr-code-api/docs',
 }
 
-test('401 on a node with no credential says to add one, and names where', async () => {
+test('401 on a node with no credential says so, and says opening it binds one', async () => {
   const error = await refused(context({ key: null }), answer(401, NO_KEY_BODY))
   assert.ok(error instanceof NodeApiError, 'the step failed with something other than a NodeApiError')
-  assert.equal(error.message, 'This operation needs a QRSalt API key, and this node has none.')
-  assert.match(error.description, /Add a QRSalt API credential to this node/)
+  assert.equal(error.message, SAID.none)
+  assert.match(error.description, /Credential to connect with/)
   assert.match(error.description, /Settings → API keys/)
+  // The trap that cost an evening: an imported workflow binds nothing until
+  // each node is opened, so the sentence has to name it.
+  assert.match(error.description, /just imported/)
+  assert.match(error.description, /opening each QRSalt node once/)
   assert.match(error.description, /Render \(Free\) and Read \(Free\)/)
   // It must not read as a bad key: there is no key.
   assert.doesNotMatch(error.message, /not valid|revoked/)
@@ -131,17 +154,59 @@ test('401 on a node with no credential says to add one, and names where', async 
 
 test('401 on a node that does have a credential says the key is wrong or revoked', async () => {
   const error = await refused(context({ key: 'qr_live_wrong' }), answer(401, BAD_KEY_BODY))
-  assert.equal(error.message, 'QRSalt refused this API key.')
+  assert.equal(error.message, SAID.refused)
   assert.match(error.description, /wrong, or it has been revoked/)
   assert.match(error.description, /Base URL/)
   // QRSalt's own sentence is kept.
   assert.match(error.description, /That API key is not valid\./)
-  assert.doesNotMatch(error.description, /Add a QRSalt API credential/)
+  assert.doesNotMatch(error.description, /Credential to connect with/)
 })
 
-test('an empty API key counts as no credential at all', async () => {
+test('an empty API key is reported as an empty key, not as a missing credential', async () => {
   const error = await refused(context({ key: '   ' }), answer(401, NO_KEY_BODY))
-  assert.equal(error.message, 'This operation needs a QRSalt API key, and this node has none.')
+  assert.equal(error.message, SAID.empty)
+  assert.match(error.description, /Settings → API keys/)
+  assert.doesNotMatch(error.message, /no QRSalt API credential attached/)
+})
+
+test('a credential that cannot be read is never reported as a credential that is absent', async () => {
+  const error = await refused(
+    context({ throws: 'Credentials could not be decrypted' }),
+    answer(401, NO_KEY_BODY),
+  )
+  assert.equal(error.message, SAID.unreadable)
+  // The real fault has to survive, or there is nothing to act on.
+  assert.match(error.description, /Credentials could not be decrypted/)
+  assert.doesNotMatch(error.message, /has no QRSalt API credential attached/)
+  assert.doesNotMatch(String(error.description), /Create new/)
+})
+
+test('a key that is present but never sent is not blamed on the key', async () => {
+  // QRSalt says the header never arrived; the node can read a perfectly good
+  // key. Saying "QRSalt refused this API key" there sends people to check a key
+  // that is fine.
+  const error = await refused(context({ key: 'qr_live_fine' }), answer(401, NO_KEY_BODY))
+  assert.equal(error.message, SAID.unsent)
+  assert.match(error.description, /no Authorization header/)
+  assert.match(error.description, /just imported/)
+  assert.match(error.description, /Send your API key as/)
+})
+
+test('each credential state has its own sentence, and no two share one', async () => {
+  const states = [
+    [context({ key: null }), SAID.none],
+    [context({ key: '' }), SAID.empty],
+    [context({ throws: 'Credential not found' }), SAID.unreadable],
+    [context({ key: 'qr_live_fine' }), SAID.unsent],
+    [context({ key: 'qr_live_fine' }), SAID.refused, BAD_KEY_BODY],
+  ]
+  const seen = new Set()
+  for (const [ctx, sentence, body = NO_KEY_BODY] of states) {
+    const error = await refused(ctx, answer(401, body))
+    assert.equal(error.message, sentence)
+    assert.ok(!seen.has(sentence), `two credential states say “${sentence}”`)
+    seen.add(sentence)
+  }
 })
 
 test('402 keeps QRSalt’s own sentence and adds the pricing link', async () => {
@@ -242,8 +307,8 @@ test('a flat 401 on a keyed operation still says to add a credential', async () 
     context({ key: null, operation: 'render' }),
     answer(401, { error: 'Send your API key as `Authorization: Bearer qr_live_...`.' }),
   )
-  assert.equal(error.message, 'This operation needs a QRSalt API key, and this node has none.')
-  assert.match(error.description, /Add a QRSalt API credential to this node/)
+  assert.equal(error.message, SAID.none)
+  assert.match(error.description, /Credential to connect with/)
 })
 
 test('continue on fail carries the flat sentence and its hint', async () => {
@@ -313,8 +378,8 @@ test('continue on fail puts the sentence in json.error rather than faking a succ
     answer(401, NO_KEY_BODY),
   )
   assert.equal(out.length, 1)
-  assert.equal(out[0].json.error, 'This operation needs a QRSalt API key, and this node has none.')
-  assert.match(out[0].json.description, /Add a QRSalt API credential to this node/)
+  assert.equal(out[0].json.error, SAID.none)
+  assert.match(out[0].json.description, /Credential to connect with/)
   assert.equal(out[0].json.httpCode, 401)
   // The item carries the error itself as well, so n8n marks it failed.
   assert.ok(out[0].error instanceof NodeApiError)
@@ -403,7 +468,8 @@ test('the trigger fails to subscribe rather than reporting a trigger that cannot
   assert.match(listing.message, /webhook endpoints/)
 
   const creating = await refusedHook(hooks.create, refuse)
-  assert.match(creating.message, /would not accept this API key/)
+  // Not "would not accept this API key": a timeout here is not a rejected key.
+  assert.match(creating.message, /would not answer for this API key/)
 
   const removing = await refusedHook(hooks.delete, refuse)
   assert.match(removing.message, /would not remove/)

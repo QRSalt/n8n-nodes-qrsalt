@@ -161,8 +161,8 @@ export class QrSaltTrigger implements INodeType {
           })) as Me
         } catch (error) {
           throw new NodeApiError(this.getNode(), error as never, {
-            message: 'QRSalt would not accept this API key.',
-            description: `Check the key in the credential, and that its workspace still has a plan with API access: ${PRICING}`,
+            message: 'QRSalt would not answer for this API key.',
+            description: `The call above says what went wrong. If it is a refusal, check the key in the credential and that its workspace still has a plan with API access: ${PRICING}`,
           })
         }
 

@@ -201,12 +201,12 @@ test('a step that errors reports the API message, and its dependents are skipped
 const REFUSED = [
   {
     json: {
-      error: 'This operation needs a QRSalt API key, and this node has none.',
-      description: 'Add a QRSalt API credential to this node: open the node and, under “Credential to connect with”, pick one or choose Create new.',
+      error: 'This node has no QRSalt API credential attached, so the call went out without a key.',
+      description: 'Open the node and, under “Credential to connect with”, pick one or choose Create new.',
       httpCode: 401,
     },
     error: {
-      message: 'This operation needs a QRSalt API key, and this node has none.',
+      message: 'This node has no QRSalt API credential attached, so the call went out without a key.',
       httpCode: '401',
     },
   },
@@ -271,7 +271,7 @@ test('a keyed step refused while the credential itself works is named, not skipp
 
   const r = runSummary(nodes)
   assert.equal(r.passed, false)
-  assert.match(r.report, /codeCreate {12}FAIL {5}This operation needs a QRSalt API key/)
+  assert.match(r.report, /codeCreate {12}FAIL {5}This node has no QRSalt API credential attached/)
 })
 
 test('empty items with no error anywhere are failures, not passes', () => {
