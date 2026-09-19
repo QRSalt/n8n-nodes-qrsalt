@@ -68,14 +68,17 @@ const text = (value: unknown): string | undefined => {
 }
 
 /**
- * QRSalt answers a refusal in one of two envelopes, and both have to be read.
+ * Every QRSalt refusal carries `code` and `message` at the top level, whichever
+ * endpoint made it, so those are read first.
+ *
+ * Both older shapes are still sent and still read here:
  *
  * `/api/v1/*` nests it:      {"error":{"code","message","scope","scopes"}}
  * `/api/qr`, `/api/qr/free`
  * and `/api/qr/decode` flatten it: {"error":"the sentence","hint":"…"}
  *
  * In the flat one the message *is* the value of `error`, so reading only
- * `error.message` leaves the keyless operations — the ones people try first —
+ * `error.message` left the keyless operations — the ones people try first —
  * reporting a bare "HTTP 400" instead of QRSalt's own sentence.
  */
 function refusalIn(value: unknown): Refusal | null {
@@ -84,10 +87,12 @@ function refusalIn(value: unknown): Refusal | null {
 
   const error = body.error
   const hint = text(body.hint)
+  const said = text(body.message)
+  const topCode = text(body.code)
 
-  if (typeof error === 'string') {
-    const message = text(error)
-    return message || hint ? { message, hint } : null
+  if (typeof error === 'string' || (!error && said)) {
+    const message = said ?? text(error)
+    return message || hint ? { message, code: topCode, hint } : null
   }
 
   if (error && typeof error === 'object' && !Array.isArray(error)) {
@@ -96,8 +101,8 @@ function refusalIn(value: unknown): Refusal | null {
       ? nested.scopes.filter((scope): scope is string => typeof scope === 'string')
       : undefined
     return {
-      message: text(nested.message),
-      code: text(nested.code),
+      message: said ?? text(nested.message),
+      code: topCode ?? text(nested.code),
       scope: text(nested.scope),
       ...(scopes?.length ? { scopes } : {}),
       hint: hint ?? text(nested.hint),

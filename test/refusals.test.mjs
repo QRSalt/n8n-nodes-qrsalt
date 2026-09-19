@@ -107,6 +107,17 @@ const FLAT_IMAGE_BODY = {
   docs: '/qr-code-api/docs',
 }
 
+/**
+ * The same refusal as it is sent now: the old field untouched, and the
+ * `code`/`message` pair every endpoint carries on top of it.
+ */
+const UNIFIED_IMAGE_BODY = {
+  error: 'That file is not a PNG, JPEG or WebP image we can read.',
+  code: 'unsupported_media',
+  message: 'That file is not a PNG, JPEG or WebP image we can read.',
+  docs: '/qr-code-api/docs',
+}
+
 test('401 on a node with no credential says to add one, and names where', async () => {
   const error = await refused(context({ key: null }), answer(401, NO_KEY_BODY))
   assert.ok(error instanceof NodeApiError, 'the step failed with something other than a NodeApiError')
@@ -416,4 +427,24 @@ test('the credential test asks for a status it can judge, and judges the body', 
   for (const rule of credentialTest.rules ?? []) {
     assert.equal(rule.type, 'responseSuccessBody')
   }
+})
+
+test('the top-level pair is what a refusal is read from now', async () => {
+  const error = await refused(context({ operation: 'readFree' }), answer(415, UNIFIED_IMAGE_BODY))
+  assert.equal(error.message, 'That file is not a PNG, JPEG or WebP image we can read.')
+  assert.doesNotMatch(error.message, /HTTP 415/)
+  assert.equal(error.httpCode, '415')
+})
+
+test('a plan wall is recognised by the code wherever the code is carried', async () => {
+  const error = await refused(
+    context(),
+    answer(402, {
+      error: { code: 'plan_required', message: 'Creating codes comes with Pro and above.' },
+      code: 'plan_required',
+      message: 'Creating codes comes with Pro and above.',
+    }),
+  )
+  assert.equal(error.message, 'Creating codes comes with Pro and above.')
+  assert.match(error.description, /plan that includes API access/)
 })
